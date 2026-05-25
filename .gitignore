@@ -2,3 +2,4 @@
 *.vs
 *Binaries
 *Intermediate
+*out
