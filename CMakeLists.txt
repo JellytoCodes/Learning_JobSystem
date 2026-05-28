@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(Learning_JobSystem
     src/ThreadPool.h
     src/ThreadPool.cpp
-    experiments/Day02_NotifyComparison.cpp)
+    experiments/Day02_NotifyComparison.cpp "experiments/Day03_ChunkCount.cpp")
 
 # 멀티스레딩 라이브러리 링크 (Linux/macOS에서 필요, Windows는 자동)
 find_package(Threads REQUIRED)
