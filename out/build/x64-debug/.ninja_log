@@ -1,4 +1,4 @@
 # ninja log v6
-7	500	8015420821887890	CMakeFiles/Learning_JobSystem.dir/src/ThreadPool.cpp.obj	317d420db109eda2
-12	735	8015420821942218	CMakeFiles/Learning_JobSystem.dir/experiments/Day02_NotifyComparison.cpp.obj	8bfe14d0892631ae
-735	1132	8015420829170422	Learning_JobSystem.exe	ba3374b1724cd244
+5	692	8017546458422205	CMakeFiles/Day04_Future.dir/src/ThreadPool.cpp.obj	f7ec07629b160cfe
+10	866	8017546458467234	CMakeFiles/Day04_Future.dir/experiments/Day04_SubmitWithFuture.cpp.obj	e409c2623a7cba56
+866	1173	8017546467033343	Day04_Future.exe	abef8b1ffeac80db

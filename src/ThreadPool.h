@@ -8,6 +8,9 @@
 #include <atomic>
 #include <vector>
 #include <stdexcept>
+#include <future>          // std::future, std::packaged_task
+#include <memory>          // std::shared_ptr
+#include <type_traits>     // std::invoke_result_t
 
 // =============================================================================
 // ThreadPool
@@ -63,6 +66,49 @@ public:
     //   워커 스레드 중 하나가 큐에서 꺼내 실행한다.
     // -------------------------------------------------------------------------
     void Submit(std::function<void()> job);
+
+    // -------------------------------------------------------------------------
+    // SubmitWithFuture
+    //   반환값이 있는 작업을 제출하고, std::future<T>를 즉시 반환한다.
+    //   future.get()을 호출하면 작업 완료까지 블록한 뒤 결과를 반환한다.
+    //
+    //   Submit과의 차이:
+    //     Submit      : 결과를 외부 배열에 직접 써야 함 (index 관리 필요)
+    //     SubmitWithFuture : future가 결과를 들고 다님 (index 불필요)
+    //
+    //   예:
+    //     auto f = pool.SubmitWithFuture([] { return ComputeSomething(); });
+    //     // ... 다른 작업 수행 ...
+    //     int result = f.get();  // 완료될 때까지 여기서 블록
+    //
+    //   예외 처리:
+    //     작업 내부에서 예외가 발생하면 future에 저장된다.
+    //     f.get() 호출 시 그 예외가 다시 던져진다.
+    //
+    //   [구현 핵심] packaged_task를 shared_ptr로 감싸는 이유:
+    //     std::packaged_task는 복사 불가(move-only) 타입이다.
+    //     하지만 Submit에 넘기는 std::function<void()>은 복사 가능해야 한다.
+    //     shared_ptr로 감싸면 람다가 포인터(복사 가능)를 캡처하므로 해결된다.
+    // -------------------------------------------------------------------------
+    template<typename Func>
+    auto SubmitWithFuture(Func&& func) -> std::future<std::invoke_result_t<Func>>
+    {
+        using ReturnType = std::invoke_result_t<Func>;
+
+        // packaged_task: func을 감싸고, 연결된 future를 제공한다.
+        // task를 실행하면 → future가 결과(또는 예외)를 받는다.
+        auto task = std::make_shared<std::packaged_task<ReturnType()>>(
+            std::forward<Func>(func)
+        );
+
+        // future를 미리 꺼낸다. task가 사라져도 future는 독립적으로 살아남는다.
+        std::future<ReturnType> future = task->get_future();
+
+        // task의 복사본이 아닌 shared_ptr을 캡처 → packaged_task 복사 문제 해결
+        Submit([task]() { (*task)(); });
+
+        return future;
+    }
 
     // -------------------------------------------------------------------------
     // WaitAll

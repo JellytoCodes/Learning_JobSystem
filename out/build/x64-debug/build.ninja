@@ -41,54 +41,139 @@ include CMakeFiles\rules.ninja
 
 cmake_ninja_workdir = D$:\Dev\Learning_JobSystem\out\build\x64-debug\
 # =============================================================================
-# Object build statements for EXECUTABLE target Learning_JobSystem
+# Object build statements for EXECUTABLE target Day02_Notify
 
 
 #############################################
-# Order-only phony target for Learning_JobSystem
+# Order-only phony target for Day02_Notify
 
-build cmake_object_order_depends_target_Learning_JobSystem: phony || .
+build cmake_object_order_depends_target_Day02_Notify: phony || .
 
-build CMakeFiles\Learning_JobSystem.dir\src\ThreadPool.cpp.obj: CXX_COMPILER__Learning_JobSystem_unscanned_Debug D$:\Dev\Learning_JobSystem\src\ThreadPool.cpp || cmake_object_order_depends_target_Learning_JobSystem
+build CMakeFiles\Day02_Notify.dir\src\ThreadPool.cpp.obj: CXX_COMPILER__Day02_Notify_unscanned_Debug D$:\Dev\Learning_JobSystem\src\ThreadPool.cpp || cmake_object_order_depends_target_Day02_Notify
   FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
-  OBJECT_DIR = CMakeFiles\Learning_JobSystem.dir
-  OBJECT_FILE_DIR = CMakeFiles\Learning_JobSystem.dir\src
-  TARGET_COMPILE_PDB = CMakeFiles\Learning_JobSystem.dir\
-  TARGET_PDB = Learning_JobSystem.pdb
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day02_Notify.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day02_Notify.dir\src
+  TARGET_COMPILE_PDB = CMakeFiles\Day02_Notify.dir\
+  TARGET_PDB = Day02_Notify.pdb
 
-build CMakeFiles\Learning_JobSystem.dir\experiments\Day02_NotifyComparison.cpp.obj: CXX_COMPILER__Learning_JobSystem_unscanned_Debug D$:\Dev\Learning_JobSystem\experiments\Day02_NotifyComparison.cpp || cmake_object_order_depends_target_Learning_JobSystem
+build CMakeFiles\Day02_Notify.dir\experiments\Day02_NotifyComparison.cpp.obj: CXX_COMPILER__Day02_Notify_unscanned_Debug D$:\Dev\Learning_JobSystem\experiments\Day02_NotifyComparison.cpp || cmake_object_order_depends_target_Day02_Notify
   FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
-  OBJECT_DIR = CMakeFiles\Learning_JobSystem.dir
-  OBJECT_FILE_DIR = CMakeFiles\Learning_JobSystem.dir\experiments
-  TARGET_COMPILE_PDB = CMakeFiles\Learning_JobSystem.dir\
-  TARGET_PDB = Learning_JobSystem.pdb
-
-build CMakeFiles\Learning_JobSystem.dir\experiments\Day03_ChunkCount.cpp.obj: CXX_COMPILER__Learning_JobSystem_unscanned_Debug D$:\Dev\Learning_JobSystem\experiments\Day03_ChunkCount.cpp || cmake_object_order_depends_target_Learning_JobSystem
-  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
-  OBJECT_DIR = CMakeFiles\Learning_JobSystem.dir
-  OBJECT_FILE_DIR = CMakeFiles\Learning_JobSystem.dir\experiments
-  TARGET_COMPILE_PDB = CMakeFiles\Learning_JobSystem.dir\
-  TARGET_PDB = Learning_JobSystem.pdb
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day02_Notify.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day02_Notify.dir\experiments
+  TARGET_COMPILE_PDB = CMakeFiles\Day02_Notify.dir\
+  TARGET_PDB = Day02_Notify.pdb
 
 
 # =============================================================================
-# Link build statements for EXECUTABLE target Learning_JobSystem
+# Link build statements for EXECUTABLE target Day02_Notify
 
 
 #############################################
-# Link the executable Learning_JobSystem.exe
+# Link the executable Day02_Notify.exe
 
-build Learning_JobSystem.exe: CXX_EXECUTABLE_LINKER__Learning_JobSystem_Debug CMakeFiles\Learning_JobSystem.dir\src\ThreadPool.cpp.obj CMakeFiles\Learning_JobSystem.dir\experiments\Day02_NotifyComparison.cpp.obj CMakeFiles\Learning_JobSystem.dir\experiments\Day03_ChunkCount.cpp.obj
+build Day02_Notify.exe: CXX_EXECUTABLE_LINKER__Day02_Notify_Debug CMakeFiles\Day02_Notify.dir\src\ThreadPool.cpp.obj CMakeFiles\Day02_Notify.dir\experiments\Day02_NotifyComparison.cpp.obj
   FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -MDd
   LINK_FLAGS = /machine:x64 /debug /INCREMENTAL /subsystem:console
   LINK_LIBRARIES = kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
-  OBJECT_DIR = CMakeFiles\Learning_JobSystem.dir
+  OBJECT_DIR = CMakeFiles\Day02_Notify.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
-  TARGET_COMPILE_PDB = CMakeFiles\Learning_JobSystem.dir\
-  TARGET_FILE = Learning_JobSystem.exe
-  TARGET_IMPLIB = Learning_JobSystem.lib
-  TARGET_PDB = Learning_JobSystem.pdb
+  TARGET_COMPILE_PDB = CMakeFiles\Day02_Notify.dir\
+  TARGET_FILE = Day02_Notify.exe
+  TARGET_IMPLIB = Day02_Notify.lib
+  TARGET_PDB = Day02_Notify.pdb
+
+# =============================================================================
+# Object build statements for EXECUTABLE target Day03_Chunk
+
+
+#############################################
+# Order-only phony target for Day03_Chunk
+
+build cmake_object_order_depends_target_Day03_Chunk: phony || .
+
+build CMakeFiles\Day03_Chunk.dir\src\ThreadPool.cpp.obj: CXX_COMPILER__Day03_Chunk_unscanned_Debug D$:\Dev\Learning_JobSystem\src\ThreadPool.cpp || cmake_object_order_depends_target_Day03_Chunk
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day03_Chunk.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day03_Chunk.dir\src
+  TARGET_COMPILE_PDB = CMakeFiles\Day03_Chunk.dir\
+  TARGET_PDB = Day03_Chunk.pdb
+
+build CMakeFiles\Day03_Chunk.dir\experiments\Day03_ChunkCount.cpp.obj: CXX_COMPILER__Day03_Chunk_unscanned_Debug D$:\Dev\Learning_JobSystem\experiments\Day03_ChunkCount.cpp || cmake_object_order_depends_target_Day03_Chunk
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day03_Chunk.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day03_Chunk.dir\experiments
+  TARGET_COMPILE_PDB = CMakeFiles\Day03_Chunk.dir\
+  TARGET_PDB = Day03_Chunk.pdb
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target Day03_Chunk
+
+
+#############################################
+# Link the executable Day03_Chunk.exe
+
+build Day03_Chunk.exe: CXX_EXECUTABLE_LINKER__Day03_Chunk_Debug CMakeFiles\Day03_Chunk.dir\src\ThreadPool.cpp.obj CMakeFiles\Day03_Chunk.dir\experiments\Day03_ChunkCount.cpp.obj
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -MDd
+  LINK_FLAGS = /machine:x64 /debug /INCREMENTAL /subsystem:console
+  LINK_LIBRARIES = kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
+  OBJECT_DIR = CMakeFiles\Day03_Chunk.dir
+  POST_BUILD = cd .
+  PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\Day03_Chunk.dir\
+  TARGET_FILE = Day03_Chunk.exe
+  TARGET_IMPLIB = Day03_Chunk.lib
+  TARGET_PDB = Day03_Chunk.pdb
+
+# =============================================================================
+# Object build statements for EXECUTABLE target Day04_Future
+
+
+#############################################
+# Order-only phony target for Day04_Future
+
+build cmake_object_order_depends_target_Day04_Future: phony || .
+
+build CMakeFiles\Day04_Future.dir\src\ThreadPool.cpp.obj: CXX_COMPILER__Day04_Future_unscanned_Debug D$:\Dev\Learning_JobSystem\src\ThreadPool.cpp || cmake_object_order_depends_target_Day04_Future
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day04_Future.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day04_Future.dir\src
+  TARGET_COMPILE_PDB = CMakeFiles\Day04_Future.dir\
+  TARGET_PDB = Day04_Future.pdb
+
+build CMakeFiles\Day04_Future.dir\experiments\Day04_SubmitWithFuture.cpp.obj: CXX_COMPILER__Day04_Future_unscanned_Debug D$:\Dev\Learning_JobSystem\experiments\Day04_SubmitWithFuture.cpp || cmake_object_order_depends_target_Day04_Future
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day04_Future.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day04_Future.dir\experiments
+  TARGET_COMPILE_PDB = CMakeFiles\Day04_Future.dir\
+  TARGET_PDB = Day04_Future.pdb
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target Day04_Future
+
+
+#############################################
+# Link the executable Day04_Future.exe
+
+build Day04_Future.exe: CXX_EXECUTABLE_LINKER__Day04_Future_Debug CMakeFiles\Day04_Future.dir\src\ThreadPool.cpp.obj CMakeFiles\Day04_Future.dir\experiments\Day04_SubmitWithFuture.cpp.obj
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -MDd
+  LINK_FLAGS = /machine:x64 /debug /INCREMENTAL /subsystem:console
+  LINK_LIBRARIES = kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
+  OBJECT_DIR = CMakeFiles\Day04_Future.dir
+  POST_BUILD = cd .
+  PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\Day04_Future.dir\
+  TARGET_FILE = Day04_Future.exe
+  TARGET_IMPLIB = Day04_Future.lib
+  TARGET_PDB = Day04_Future.pdb
 
 
 #############################################
@@ -116,7 +201,11 @@ build rebuild_cache: phony CMakeFiles\rebuild_cache.util
 # =============================================================================
 # Target aliases.
 
-build Learning_JobSystem: phony Learning_JobSystem.exe
+build Day02_Notify: phony Day02_Notify.exe
+
+build Day03_Chunk: phony Day03_Chunk.exe
+
+build Day04_Future: phony Day04_Future.exe
 
 # =============================================================================
 # Folder targets.
@@ -126,7 +215,7 @@ build Learning_JobSystem: phony Learning_JobSystem.exe
 #############################################
 # Folder: D:/Dev/Learning_JobSystem/out/build/x64-debug
 
-build all: phony Learning_JobSystem.exe
+build all: phony Day02_Notify.exe Day03_Chunk.exe Day04_Future.exe
 
 # =============================================================================
 # Built-in targets
