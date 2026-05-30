@@ -220,6 +220,51 @@ build Day05_PerthreadStats.exe: CXX_EXECUTABLE_LINKER__Day05_PerthreadStats_Debu
   TARGET_IMPLIB = Day05_PerthreadStats.lib
   TARGET_PDB = Day05_PerthreadStats.pdb
 
+# =============================================================================
+# Object build statements for EXECUTABLE target Day06_DataRace
+
+
+#############################################
+# Order-only phony target for Day06_DataRace
+
+build cmake_object_order_depends_target_Day06_DataRace: phony || .
+
+build CMakeFiles\Day06_DataRace.dir\src\ThreadPool.cpp.obj: CXX_COMPILER__Day06_DataRace_unscanned_Debug D$:\Dev\Learning_JobSystem\src\ThreadPool.cpp || cmake_object_order_depends_target_Day06_DataRace
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day06_DataRace.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day06_DataRace.dir\src
+  TARGET_COMPILE_PDB = CMakeFiles\Day06_DataRace.dir\
+  TARGET_PDB = Day06_DataRace.pdb
+
+build CMakeFiles\Day06_DataRace.dir\experiments\Day06_DataRace.cpp.obj: CXX_COMPILER__Day06_DataRace_unscanned_Debug D$:\Dev\Learning_JobSystem\experiments\Day06_DataRace.cpp || cmake_object_order_depends_target_Day06_DataRace
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day06_DataRace.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day06_DataRace.dir\experiments
+  TARGET_COMPILE_PDB = CMakeFiles\Day06_DataRace.dir\
+  TARGET_PDB = Day06_DataRace.pdb
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target Day06_DataRace
+
+
+#############################################
+# Link the executable Day06_DataRace.exe
+
+build Day06_DataRace.exe: CXX_EXECUTABLE_LINKER__Day06_DataRace_Debug CMakeFiles\Day06_DataRace.dir\src\ThreadPool.cpp.obj CMakeFiles\Day06_DataRace.dir\experiments\Day06_DataRace.cpp.obj
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -MDd
+  LINK_FLAGS = /machine:x64 /debug /INCREMENTAL /subsystem:console
+  LINK_LIBRARIES = kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
+  OBJECT_DIR = CMakeFiles\Day06_DataRace.dir
+  POST_BUILD = cd .
+  PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\Day06_DataRace.dir\
+  TARGET_FILE = Day06_DataRace.exe
+  TARGET_IMPLIB = Day06_DataRace.lib
+  TARGET_PDB = Day06_DataRace.pdb
+
 
 #############################################
 # Utility command for edit_cache
@@ -254,6 +299,8 @@ build Day04_Future: phony Day04_Future.exe
 
 build Day05_PerthreadStats: phony Day05_PerthreadStats.exe
 
+build Day06_DataRace: phony Day06_DataRace.exe
+
 # =============================================================================
 # Folder targets.
 
@@ -262,7 +309,7 @@ build Day05_PerthreadStats: phony Day05_PerthreadStats.exe
 #############################################
 # Folder: D:/Dev/Learning_JobSystem/out/build/x64-debug
 
-build all: phony Day02_Notify.exe Day03_Chunk.exe Day04_Future.exe Day05_PerthreadStats.exe
+build all: phony Day02_Notify.exe Day03_Chunk.exe Day04_Future.exe Day05_PerthreadStats.exe Day06_DataRace.exe
 
 # =============================================================================
 # Built-in targets
