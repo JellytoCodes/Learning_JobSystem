@@ -1,5 +1,6 @@
 D:/Dev/Learning_JobSystem/out/build/x64-debug/CMakeFiles/Day02_Notify.dir
 D:/Dev/Learning_JobSystem/out/build/x64-debug/CMakeFiles/Day03_Chunk.dir
 D:/Dev/Learning_JobSystem/out/build/x64-debug/CMakeFiles/Day04_Future.dir
+D:/Dev/Learning_JobSystem/out/build/x64-debug/CMakeFiles/Day05_PerthreadStats.dir
 D:/Dev/Learning_JobSystem/out/build/x64-debug/CMakeFiles/edit_cache.dir
 D:/Dev/Learning_JobSystem/out/build/x64-debug/CMakeFiles/rebuild_cache.dir

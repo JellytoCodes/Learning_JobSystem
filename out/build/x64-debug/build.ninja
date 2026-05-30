@@ -175,6 +175,51 @@ build Day04_Future.exe: CXX_EXECUTABLE_LINKER__Day04_Future_Debug CMakeFiles\Day
   TARGET_IMPLIB = Day04_Future.lib
   TARGET_PDB = Day04_Future.pdb
 
+# =============================================================================
+# Object build statements for EXECUTABLE target Day05_PerthreadStats
+
+
+#############################################
+# Order-only phony target for Day05_PerthreadStats
+
+build cmake_object_order_depends_target_Day05_PerthreadStats: phony || .
+
+build CMakeFiles\Day05_PerthreadStats.dir\src\ThreadPool.cpp.obj: CXX_COMPILER__Day05_PerthreadStats_unscanned_Debug D$:\Dev\Learning_JobSystem\src\ThreadPool.cpp || cmake_object_order_depends_target_Day05_PerthreadStats
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day05_PerthreadStats.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day05_PerthreadStats.dir\src
+  TARGET_COMPILE_PDB = CMakeFiles\Day05_PerthreadStats.dir\
+  TARGET_PDB = Day05_PerthreadStats.pdb
+
+build CMakeFiles\Day05_PerthreadStats.dir\experiments\Day05_PerthreadStats.cpp.obj: CXX_COMPILER__Day05_PerthreadStats_unscanned_Debug D$:\Dev\Learning_JobSystem\experiments\Day05_PerthreadStats.cpp || cmake_object_order_depends_target_Day05_PerthreadStats
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day05_PerthreadStats.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day05_PerthreadStats.dir\experiments
+  TARGET_COMPILE_PDB = CMakeFiles\Day05_PerthreadStats.dir\
+  TARGET_PDB = Day05_PerthreadStats.pdb
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target Day05_PerthreadStats
+
+
+#############################################
+# Link the executable Day05_PerthreadStats.exe
+
+build Day05_PerthreadStats.exe: CXX_EXECUTABLE_LINKER__Day05_PerthreadStats_Debug CMakeFiles\Day05_PerthreadStats.dir\src\ThreadPool.cpp.obj CMakeFiles\Day05_PerthreadStats.dir\experiments\Day05_PerthreadStats.cpp.obj
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -MDd
+  LINK_FLAGS = /machine:x64 /debug /INCREMENTAL /subsystem:console
+  LINK_LIBRARIES = kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
+  OBJECT_DIR = CMakeFiles\Day05_PerthreadStats.dir
+  POST_BUILD = cd .
+  PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\Day05_PerthreadStats.dir\
+  TARGET_FILE = Day05_PerthreadStats.exe
+  TARGET_IMPLIB = Day05_PerthreadStats.lib
+  TARGET_PDB = Day05_PerthreadStats.pdb
+
 
 #############################################
 # Utility command for edit_cache
@@ -207,6 +252,8 @@ build Day03_Chunk: phony Day03_Chunk.exe
 
 build Day04_Future: phony Day04_Future.exe
 
+build Day05_PerthreadStats: phony Day05_PerthreadStats.exe
+
 # =============================================================================
 # Folder targets.
 
@@ -215,7 +262,7 @@ build Day04_Future: phony Day04_Future.exe
 #############################################
 # Folder: D:/Dev/Learning_JobSystem/out/build/x64-debug
 
-build all: phony Day02_Notify.exe Day03_Chunk.exe Day04_Future.exe
+build all: phony Day02_Notify.exe Day03_Chunk.exe Day04_Future.exe Day05_PerthreadStats.exe
 
 # =============================================================================
 # Built-in targets

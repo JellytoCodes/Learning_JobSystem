@@ -131,14 +131,40 @@ public:
     // -------------------------------------------------------------------------
     uint32_t GetPendingJobCount() const { return _pendingJobs.load(); }
 
+    // -------------------------------------------------------------------------
+    // ThreadStats / GetPerThreadStats
+    //   각 워커 스레드가 처리한 작업 수를 반환한다.
+    //   로드 밸런싱이 잘 되고 있는지 확인하는 용도.
+    //   이상적으로는 모든 스레드의 jobsProcessed가 비슷해야 한다.
+    // -------------------------------------------------------------------------
+    struct ThreadStats
+    {
+        uint32_t threadIdx;
+        uint64_t jobsProcessed;
+    };
+
+    std::vector<ThreadStats> GetPerThreadStats() const
+    {
+        const uint32_t n = GetThreadCount();
+        std::vector<ThreadStats> stats;
+        stats.reserve(n);
+        for (uint32_t i = 0; i < n; ++i)
+            stats.push_back({ i, _perThreadJobCount[i].load() });
+        return stats;
+    }
+
+    void ResetStats()
+    {
+        for (uint32_t i = 0; i < GetThreadCount(); ++i)
+            _perThreadJobCount[i].store(0);
+    }
+
 private:
     // -------------------------------------------------------------------------
     // WorkerLoop
-    //   각 워커 스레드가 실행하는 루프.
-    //   큐에서 작업을 꺼내 실행하고, 큐가 비면 condition_variable로 잠든다.
-    //   _stop 신호가 오면 루프를 탈출하고 스레드 종료.
+    //   threadIdx: 이 스레드의 고유 인덱스 (통계 기록용).
     // -------------------------------------------------------------------------
-    void WorkerLoop();
+    void WorkerLoop(uint32_t threadIdx);
 
 private:
     // 워커 스레드 목록
@@ -189,4 +215,17 @@ private:
     //     atomic은 CPU 명령어 수준에서 원자적 연산을 보장한다.
     // -------------------------------------------------------------------------
     std::atomic<uint32_t> _pendingJobs{ 0 };
+
+    // -------------------------------------------------------------------------
+    // _perThreadJobCount
+    //   스레드별 처리 작업 수. WorkerLoop에서 작업 완료 시 해당 인덱스 ++.
+    //   각 스레드는 자신의 인덱스에만 접근하므로 락 불필요.
+    //
+    //   왜 vector가 아닌 unique_ptr<atomic[]>인가?
+    //     std::atomic은 복사/이동 불가 타입이다.
+    //     vector는 내부 재할당 시 원소를 이동시키므로 atomic과 함께 쓸 수 없다.
+    //     unique_ptr<T[]>는 고정 크기 배열을 힙에 한 번 할당하고 이동하지 않는다.
+    //     make_unique<atomic<uint64_t>[]>(n)은 모든 원소를 0으로 value-init한다.
+    // -------------------------------------------------------------------------
+    std::unique_ptr<std::atomic<uint64_t>[]> _perThreadJobCount;
 };

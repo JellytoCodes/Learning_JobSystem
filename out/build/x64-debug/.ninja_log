@@ -2,3 +2,6 @@
 5	692	8017546458422205	CMakeFiles/Day04_Future.dir/src/ThreadPool.cpp.obj	f7ec07629b160cfe
 10	866	8017546458467234	CMakeFiles/Day04_Future.dir/experiments/Day04_SubmitWithFuture.cpp.obj	e409c2623a7cba56
 866	1173	8017546467033343	Day04_Future.exe	abef8b1ffeac80db
+8	725	8018188404807505	CMakeFiles/Day05_PerthreadStats.dir/src/ThreadPool.cpp.obj	d5eeec572614cce0
+19	582	8018188453766759	CMakeFiles/Day05_PerthreadStats.dir/experiments/Day05_PerthreadStats.cpp.obj	dd387b74d2cf3063
+583	984	8018188459401193	Day05_PerthreadStats.exe	b65120967ab233fd

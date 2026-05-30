@@ -8,17 +8,16 @@ ThreadPool::ThreadPool(uint32_t threadCount)
     if (threadCount == 0)
         throw std::invalid_argument("ThreadPool: threadCount는 1 이상이어야 합니다.");
 
-    // 워커 스레드를 threadCount개 생성.
-    // 각 스레드는 생성 즉시 WorkerLoop()를 실행하며 작업을 기다린다.
-    // reserve로 메모리를 먼저 확보하지 않으면, emplace_back 중 vector 재할당 시
-    // 이미 시작된 thread 객체가 이동되어 크래시가 발생할 수 있다.
+    // make_unique<T[]>(n): n개의 atomic을 0으로 value-init해 힙에 할당.
+    // vector::resize()와 달리 이동을 시도하지 않으므로 atomic과 안전하게 동작.
+    _perThreadJobCount = std::make_unique<std::atomic<uint64_t>[]>(threadCount);
+
     _workers.reserve(threadCount);
     for (uint32_t i = 0; i < threadCount; ++i)
     {
-        // [this]로 ThreadPool 인스턴스를 캡처해 WorkerLoop 실행.
-        // 스레드 생성 시점부터 WorkerLoop가 돌기 시작하며, 큐가 비어 있으므로
-        // 곧바로 condition_variable에서 잠든다.
-        _workers.emplace_back([this] { WorkerLoop(); });
+        // threadIdx(i)를 값으로 캡처해 WorkerLoop에 전달.
+        // 각 스레드가 자신의 인덱스를 알아야 카운터에 기록할 수 있다.
+        _workers.emplace_back([this, i] { WorkerLoop(i); });
     }
 }
 
@@ -96,60 +95,36 @@ void ThreadPool::WaitAll()
 // =============================================================================
 // WorkerLoop — 각 워커 스레드가 실행하는 루프
 // =============================================================================
-void ThreadPool::WorkerLoop()
+void ThreadPool::WorkerLoop(uint32_t threadIdx)
 {
-    // 스레드가 종료 신호를 받을 때까지 무한 반복.
     while (true)
     {
         std::function<void()> job;
 
-        // ------------------------------------------------------------------
-        // 임계 구역(Critical Section): 큐에서 작업 하나를 꺼낸다.
-        // ------------------------------------------------------------------
         {
             std::unique_lock<std::mutex> lock(_queueMutex);
 
-            // 큐가 비어 있고 종료 신호도 없으면 잠든다.
-            //
-            // wait()의 내부 동작:
-            //   1. 뮤텍스를 원자적으로 해제 (다른 스레드가 Submit 가능해짐)
-            //   2. 스레드를 블록 (CPU 점유 없음)
-            //   3. notify가 오면 뮤텍스를 다시 획득하고 predicate 재확인
-            //   4. predicate가 true면 wait 탈출, false면 다시 잠든다
             _workerCv.wait(lock, [this]
             {
                 return !_jobQueue.empty() || _stop;
             });
 
-            // 종료 신호를 받았고 큐도 비었으면 루프 탈출 → 스레드 종료.
-            // _stop만 확인하면 큐에 남은 작업들이 처리되지 않는다.
-            // 큐가 빌 때까지 남은 작업을 마저 처리하는 것이 graceful shutdown의 원칙.
             if (_stop && _jobQueue.empty())
                 return;
 
-            // 큐 앞에서 작업 하나를 이동(move)으로 꺼낸다.
-            // 복사 대신 이동을 써서 std::function 내부 데이터 복사 비용을 없앤다.
             job = std::move(_jobQueue.front());
             _jobQueue.pop();
 
-        } // 여기서 락 해제 → 다른 워커가 동시에 큐에 접근 가능해진다.
+        }
 
-        // ------------------------------------------------------------------
-        // 임계 구역 밖에서 작업 실행.
-        // 락을 잡은 채로 실행하면 다른 스레드가 큐에 접근하지 못해
-        // 병렬성이 완전히 사라진다. 반드시 락 해제 후에 실행해야 한다.
-        // ------------------------------------------------------------------
         job();
 
-        // ------------------------------------------------------------------
-        // 작업 완료 처리
-        // ------------------------------------------------------------------
+        // 이 스레드의 처리 카운터 증가.
+        // 자신의 인덱스에만 접근하므로 다른 스레드와 경합 없음.
+        ++_perThreadJobCount[threadIdx];
 
-        // 완료된 작업 수 차감. fetch_sub는 원자적 감소 연산.
-        // 반환값은 감소 이전의 값이므로, 1이었으면 현재 0이 된 것.
         const uint32_t remaining = _pendingJobs.fetch_sub(1) - 1;
 
-        // 마지막 작업이 완료됐으면 WaitAll()을 깨운다.
         if (remaining == 0)
         {
             std::unique_lock<std::mutex> lock(_completionMutex);
