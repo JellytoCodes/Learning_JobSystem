@@ -265,6 +265,51 @@ build Day06_DataRace.exe: CXX_EXECUTABLE_LINKER__Day06_DataRace_Debug CMakeFiles
   TARGET_IMPLIB = Day06_DataRace.lib
   TARGET_PDB = Day06_DataRace.pdb
 
+# =============================================================================
+# Object build statements for EXECUTABLE target Day08_JobHandle
+
+
+#############################################
+# Order-only phony target for Day08_JobHandle
+
+build cmake_object_order_depends_target_Day08_JobHandle: phony || .
+
+build CMakeFiles\Day08_JobHandle.dir\src\ThreadPool.cpp.obj: CXX_COMPILER__Day08_JobHandle_unscanned_Debug D$:\Dev\Learning_JobSystem\src\ThreadPool.cpp || cmake_object_order_depends_target_Day08_JobHandle
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day08_JobHandle.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day08_JobHandle.dir\src
+  TARGET_COMPILE_PDB = CMakeFiles\Day08_JobHandle.dir\
+  TARGET_PDB = Day08_JobHandle.pdb
+
+build CMakeFiles\Day08_JobHandle.dir\experiments\Day08_JobHandle.cpp.obj: CXX_COMPILER__Day08_JobHandle_unscanned_Debug D$:\Dev\Learning_JobSystem\experiments\Day08_JobHandle.cpp || cmake_object_order_depends_target_Day08_JobHandle
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day08_JobHandle.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day08_JobHandle.dir\experiments
+  TARGET_COMPILE_PDB = CMakeFiles\Day08_JobHandle.dir\
+  TARGET_PDB = Day08_JobHandle.pdb
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target Day08_JobHandle
+
+
+#############################################
+# Link the executable Day08_JobHandle.exe
+
+build Day08_JobHandle.exe: CXX_EXECUTABLE_LINKER__Day08_JobHandle_Debug CMakeFiles\Day08_JobHandle.dir\src\ThreadPool.cpp.obj CMakeFiles\Day08_JobHandle.dir\experiments\Day08_JobHandle.cpp.obj
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -MDd
+  LINK_FLAGS = /machine:x64 /debug /INCREMENTAL /subsystem:console
+  LINK_LIBRARIES = kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
+  OBJECT_DIR = CMakeFiles\Day08_JobHandle.dir
+  POST_BUILD = cd .
+  PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\Day08_JobHandle.dir\
+  TARGET_FILE = Day08_JobHandle.exe
+  TARGET_IMPLIB = Day08_JobHandle.lib
+  TARGET_PDB = Day08_JobHandle.pdb
+
 
 #############################################
 # Utility command for edit_cache
@@ -301,6 +346,8 @@ build Day05_PerthreadStats: phony Day05_PerthreadStats.exe
 
 build Day06_DataRace: phony Day06_DataRace.exe
 
+build Day08_JobHandle: phony Day08_JobHandle.exe
+
 # =============================================================================
 # Folder targets.
 
@@ -309,7 +356,7 @@ build Day06_DataRace: phony Day06_DataRace.exe
 #############################################
 # Folder: D:/Dev/Learning_JobSystem/out/build/x64-debug
 
-build all: phony Day02_Notify.exe Day03_Chunk.exe Day04_Future.exe Day05_PerthreadStats.exe Day06_DataRace.exe
+build all: phony Day02_Notify.exe Day03_Chunk.exe Day04_Future.exe Day05_PerthreadStats.exe Day06_DataRace.exe Day08_JobHandle.exe
 
 # =============================================================================
 # Built-in targets

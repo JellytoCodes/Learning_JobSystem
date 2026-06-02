@@ -13,6 +13,83 @@
 #include <type_traits>     // std::invoke_result_t
 
 // =============================================================================
+// JobState (내부 구현용)
+//
+// JobHandle이 공유하는 완료 상태.
+// 작업 완료 시 done = true + cv.notify_all().
+// Wait()는 done이 true가 될 때까지 condition_variable로 블록.
+//
+// 왜 shared_ptr로 감싸는가?
+//   JobHandle을 복사해서 여러 곳에서 동일한 작업의 완료를 기다릴 수 있어야 함.
+//   shared_ptr이 소유권을 공유하므로 마지막 핸들이 사라질 때까지 상태가 유지됨.
+// =============================================================================
+struct JobState
+{
+    std::atomic<bool>       done{ false };
+    std::mutex              mutex;
+    std::condition_variable cv;
+};
+
+// =============================================================================
+// JobHandle
+//
+// SubmitWithHandle()이 반환하는 경량 핸들.
+// 특정 작업 하나의 완료를 추적한다.
+//
+// WaitAll()과의 차이:
+//   WaitAll()  : 제출된 모든 작업이 끝날 때까지 기다림
+//   JobHandle  : 이 핸들에 연결된 특정 작업 하나만 골라서 기다림
+//
+// 사용 예:
+//   auto h1 = pool.SubmitWithHandle([] { SlowTask(); });
+//   auto h2 = pool.SubmitWithHandle([] { FastTask(); });
+//   h2.Wait();   // FastTask만 기다림, SlowTask는 아직 실행 중일 수 있음
+//   h1.Wait();   // 이제 SlowTask도 기다림
+// =============================================================================
+class JobHandle
+{
+public:
+    JobHandle() = default;
+
+    explicit JobHandle(std::shared_ptr<JobState> state)
+        : _state(std::move(state)) {}
+
+    // -------------------------------------------------------------------------
+    // Wait
+    //   이 핸들에 연결된 작업이 완료될 때까지 호출 스레드를 블록한다.
+    //   이미 완료됐으면 즉시 반환.
+    //   핸들이 유효하지 않으면(default 생성) 즉시 반환.
+    // -------------------------------------------------------------------------
+    void Wait() const
+    {
+        if (!_state) return;
+        std::unique_lock<std::mutex> lock(_state->mutex);
+        _state->cv.wait(lock, [this] { return _state->done.load(std::memory_order_acquire); });
+    }
+
+    // -------------------------------------------------------------------------
+    // IsDone
+    //   완료 여부를 논블로킹으로 확인한다.
+    //   핸들이 유효하지 않으면 true 반환 (기다릴 게 없음).
+    // -------------------------------------------------------------------------
+    bool IsDone() const
+    {
+        if (!_state) return true;
+        return _state->done.load(std::memory_order_acquire);
+    }
+
+    // -------------------------------------------------------------------------
+    // IsValid
+    //   핸들이 실제 작업과 연결되어 있는지 확인.
+    //   default 생성된 JobHandle은 IsValid() == false.
+    // -------------------------------------------------------------------------
+    bool IsValid() const { return _state != nullptr; }
+
+private:
+    std::shared_ptr<JobState> _state;
+};
+
+// =============================================================================
 // ThreadPool
 //
 // [핵심 개념]
@@ -94,20 +171,45 @@ public:
     auto SubmitWithFuture(Func&& func) -> std::future<std::invoke_result_t<Func>>
     {
         using ReturnType = std::invoke_result_t<Func>;
-
-        // packaged_task: func을 감싸고, 연결된 future를 제공한다.
-        // task를 실행하면 → future가 결과(또는 예외)를 받는다.
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
             std::forward<Func>(func)
         );
-
-        // future를 미리 꺼낸다. task가 사라져도 future는 독립적으로 살아남는다.
         std::future<ReturnType> future = task->get_future();
-
-        // task의 복사본이 아닌 shared_ptr을 캡처 → packaged_task 복사 문제 해결
         Submit([task]() { (*task)(); });
-
         return future;
+    }
+
+    // -------------------------------------------------------------------------
+    // SubmitWithHandle
+    //   작업을 제출하고 JobHandle을 반환한다.
+    //   핸들로 이 작업 하나의 완료만 선택적으로 기다릴 수 있다.
+    //
+    //   WaitAll과의 차이:
+    //     WaitAll          : 풀의 모든 작업이 끝날 때까지 기다림
+    //     handle.Wait()    : 이 작업 하나만 골라서 기다림
+    //
+    //   내부 동작:
+    //     JobState(done 플래그 + cv)를 shared_ptr로 생성.
+    //     작업 완료 시 done = true + cv.notify_all().
+    //     JobHandle은 같은 shared_ptr을 들고 다니다가
+    //     Wait() 호출 시 done이 true가 될 때까지 cv로 블록.
+    // -------------------------------------------------------------------------
+    JobHandle SubmitWithHandle(std::function<void()> job)
+    {
+        auto state = std::make_shared<JobState>();
+
+        Submit([job = std::move(job), state]() mutable
+        {
+            job();
+            // 작업 완료 — done 세팅 후 대기 중인 Wait() 깨우기
+            {
+                std::unique_lock<std::mutex> lock(state->mutex);
+                state->done.store(true, std::memory_order_release);
+            }
+            state->cv.notify_all();
+        });
+
+        return JobHandle(std::move(state));
     }
 
     // -------------------------------------------------------------------------

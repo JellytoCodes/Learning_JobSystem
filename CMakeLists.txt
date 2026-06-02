@@ -53,7 +53,7 @@ target_include_directories(Day05_PerthreadStats PRIVATE src)
 target_link_libraries(Day05_PerthreadStats PRIVATE Threads::Threads)
 target_compile_options(Day05_PerthreadStats PRIVATE ${COMMON_COMPILE_OPTIONS})
 
-# [Day 05 실험]
+# [Day 06 실험]
 add_executable(Day06_DataRace
     src/ThreadPool.h
     src/ThreadPool.cpp
@@ -62,3 +62,13 @@ add_executable(Day06_DataRace
 target_include_directories(Day06_DataRace PRIVATE src)
 target_link_libraries(Day06_DataRace PRIVATE Threads::Threads)
 target_compile_options(Day06_DataRace PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 06 실험]
+add_executable(Day08_JobHandle
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day08_JobHandle.cpp
+)
+target_include_directories(Day08_JobHandle PRIVATE src)
+target_link_libraries(Day08_JobHandle PRIVATE Threads::Threads)
+target_compile_options(Day08_JobHandle PRIVATE ${COMMON_COMPILE_OPTIONS})

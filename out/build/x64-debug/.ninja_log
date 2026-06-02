@@ -1,10 +1,13 @@
 # ninja log v6
 5	692	8017546458422205	CMakeFiles/Day04_Future.dir/src/ThreadPool.cpp.obj	f7ec07629b160cfe
 10	866	8017546458467234	CMakeFiles/Day04_Future.dir/experiments/Day04_SubmitWithFuture.cpp.obj	e409c2623a7cba56
+7	434	8018877673351881	CMakeFiles/Day06_DataRace.dir/experiments/Day06_DataRace.cpp.obj	445d3e32e83ad833
 866	1173	8017546467033343	Day04_Future.exe	abef8b1ffeac80db
+6	684	8018875374803559	CMakeFiles/Day06_DataRace.dir/src/ThreadPool.cpp.obj	a5a2c49340e071ab
 8	725	8018188404807505	CMakeFiles/Day05_PerthreadStats.dir/src/ThreadPool.cpp.obj	d5eeec572614cce0
 19	582	8018188453766759	CMakeFiles/Day05_PerthreadStats.dir/experiments/Day05_PerthreadStats.cpp.obj	dd387b74d2cf3063
 583	984	8018188459401193	Day05_PerthreadStats.exe	b65120967ab233fd
-6	684	8018875374803559	CMakeFiles/Day06_DataRace.dir/src/ThreadPool.cpp.obj	a5a2c49340e071ab
-7	434	8018877673351881	CMakeFiles/Day06_DataRace.dir/experiments/Day06_DataRace.cpp.obj	445d3e32e83ad833
 439	711	8018877677670534	Day06_DataRace.exe	5a4e238a2edafea1
+11	683	8021012321304275	CMakeFiles/Day08_JobHandle.dir/src/ThreadPool.cpp.obj	8f0ad165f725ffac
+17	809	8021012321362049	CMakeFiles/Day08_JobHandle.dir/experiments/Day08_JobHandle.cpp.obj	40ac82ca2ee335df
+809	1085	8021012329283013	Day08_JobHandle.exe	d81dbcdf50204cd8
