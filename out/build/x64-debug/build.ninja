@@ -310,6 +310,51 @@ build Day08_JobHandle.exe: CXX_EXECUTABLE_LINKER__Day08_JobHandle_Debug CMakeFil
   TARGET_IMPLIB = Day08_JobHandle.lib
   TARGET_PDB = Day08_JobHandle.pdb
 
+# =============================================================================
+# Object build statements for EXECUTABLE target Day09_SubmitreTurnShandle
+
+
+#############################################
+# Order-only phony target for Day09_SubmitreTurnShandle
+
+build cmake_object_order_depends_target_Day09_SubmitreTurnShandle: phony || .
+
+build CMakeFiles\Day09_SubmitreTurnShandle.dir\src\ThreadPool.cpp.obj: CXX_COMPILER__Day09_SubmitreTurnShandle_unscanned_Debug D$:\Dev\Learning_JobSystem\src\ThreadPool.cpp || cmake_object_order_depends_target_Day09_SubmitreTurnShandle
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day09_SubmitreTurnShandle.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day09_SubmitreTurnShandle.dir\src
+  TARGET_COMPILE_PDB = CMakeFiles\Day09_SubmitreTurnShandle.dir\
+  TARGET_PDB = Day09_SubmitreTurnShandle.pdb
+
+build CMakeFiles\Day09_SubmitreTurnShandle.dir\experiments\Day09_SubmitreTurnShandle.cpp.obj: CXX_COMPILER__Day09_SubmitreTurnShandle_unscanned_Debug D$:\Dev\Learning_JobSystem\experiments\Day09_SubmitreTurnShandle.cpp || cmake_object_order_depends_target_Day09_SubmitreTurnShandle
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4
+  INCLUDES = -ID:\Dev\Learning_JobSystem\src
+  OBJECT_DIR = CMakeFiles\Day09_SubmitreTurnShandle.dir
+  OBJECT_FILE_DIR = CMakeFiles\Day09_SubmitreTurnShandle.dir\experiments
+  TARGET_COMPILE_PDB = CMakeFiles\Day09_SubmitreTurnShandle.dir\
+  TARGET_PDB = Day09_SubmitreTurnShandle.pdb
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target Day09_SubmitreTurnShandle
+
+
+#############################################
+# Link the executable Day09_SubmitreTurnShandle.exe
+
+build Day09_SubmitreTurnShandle.exe: CXX_EXECUTABLE_LINKER__Day09_SubmitreTurnShandle_Debug CMakeFiles\Day09_SubmitreTurnShandle.dir\src\ThreadPool.cpp.obj CMakeFiles\Day09_SubmitreTurnShandle.dir\experiments\Day09_SubmitreTurnShandle.cpp.obj
+  FLAGS = /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -MDd
+  LINK_FLAGS = /machine:x64 /debug /INCREMENTAL /subsystem:console
+  LINK_LIBRARIES = kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
+  OBJECT_DIR = CMakeFiles\Day09_SubmitreTurnShandle.dir
+  POST_BUILD = cd .
+  PRE_LINK = cd .
+  TARGET_COMPILE_PDB = CMakeFiles\Day09_SubmitreTurnShandle.dir\
+  TARGET_FILE = Day09_SubmitreTurnShandle.exe
+  TARGET_IMPLIB = Day09_SubmitreTurnShandle.lib
+  TARGET_PDB = Day09_SubmitreTurnShandle.pdb
+
 
 #############################################
 # Utility command for edit_cache
@@ -348,6 +393,8 @@ build Day06_DataRace: phony Day06_DataRace.exe
 
 build Day08_JobHandle: phony Day08_JobHandle.exe
 
+build Day09_SubmitreTurnShandle: phony Day09_SubmitreTurnShandle.exe
+
 # =============================================================================
 # Folder targets.
 
@@ -356,7 +403,7 @@ build Day08_JobHandle: phony Day08_JobHandle.exe
 #############################################
 # Folder: D:/Dev/Learning_JobSystem/out/build/x64-debug
 
-build all: phony Day02_Notify.exe Day03_Chunk.exe Day04_Future.exe Day05_PerthreadStats.exe Day06_DataRace.exe Day08_JobHandle.exe
+build all: phony Day02_Notify.exe Day03_Chunk.exe Day04_Future.exe Day05_PerthreadStats.exe Day06_DataRace.exe Day08_JobHandle.exe Day09_SubmitreTurnShandle.exe
 
 # =============================================================================
 # Built-in targets

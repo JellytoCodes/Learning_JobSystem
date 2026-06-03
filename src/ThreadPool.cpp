@@ -52,28 +52,33 @@ ThreadPool::~ThreadPool()
 // =============================================================================
 // Submit — 작업을 큐에 넣는다
 // =============================================================================
-void ThreadPool::Submit(std::function<void()> job)
+JobHandle ThreadPool::Submit(std::function<void()> job)
 {
+    auto state = std::make_shared<JobState>();
+
     {
         std::unique_lock<std::mutex> lock(_queueMutex);
 
-        // 소멸 중인 풀에 작업을 제출하는 것은 논리적 오류.
         if (_stop)
             throw std::runtime_error("ThreadPool: 종료된 풀에 작업을 제출할 수 없습니다.");
 
-        // std::move로 job을 큐에 넣는다.
-        // 복사 대신 이동을 써야 std::function 내부 캡처된 데이터가 복사되지 않는다.
-        _jobQueue.push(std::move(job));
+        // 원본 job + state를 캡처하는 래퍼 람다를 큐에 넣는다.
+        // 실행 완료 시 state->done = true + cv.notify_all().
+        _jobQueue.push([job = std::move(job), state]() mutable
+        {
+            job();
+            {
+                std::unique_lock<std::mutex> lock(state->mutex);
+                state->done.store(true, std::memory_order_release);
+            }
+            state->cv.notify_all();
+        });
 
-        // 제출된 작업 수 증가.
-        // ++는 락 안에서 수행 — _pendingJobs와 큐 상태가 항상 일치하도록 보장.
         ++_pendingJobs;
     }
 
-    // 락을 해제한 뒤 notify.
-    // 락을 잡은 채로 notify하면 깨어난 스레드가 즉시 락을 얻으려다 다시 블록된다.
-    // 불필요한 컨텍스트 스위칭을 줄이기 위해 락 해제 후에 notify하는 것이 관례.
     _workerCv.notify_one();
+    return JobHandle(std::move(state));
 }
 
 // =============================================================================

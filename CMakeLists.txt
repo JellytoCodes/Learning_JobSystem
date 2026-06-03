@@ -13,6 +13,8 @@ else()
     set(COMMON_COMPILE_OPTIONS -Wall -Wextra -pthread)
 endif()
 
+############################## 1 Weeks
+
 # [Day 02 실험]
 add_executable(Day02_Notify
     src/ThreadPool.h
@@ -63,7 +65,9 @@ target_include_directories(Day06_DataRace PRIVATE src)
 target_link_libraries(Day06_DataRace PRIVATE Threads::Threads)
 target_compile_options(Day06_DataRace PRIVATE ${COMMON_COMPILE_OPTIONS})
 
-# [Day 06 실험]
+############################## 2 Weeks
+
+# [Day 08 실험]
 add_executable(Day08_JobHandle
     src/ThreadPool.h
     src/ThreadPool.cpp
@@ -72,3 +76,13 @@ add_executable(Day08_JobHandle
 target_include_directories(Day08_JobHandle PRIVATE src)
 target_link_libraries(Day08_JobHandle PRIVATE Threads::Threads)
 target_compile_options(Day08_JobHandle PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 09 실험]
+add_executable(Day09_SubmitreTurnShandle
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day09_SubmitreTurnShandle.cpp
+)
+target_include_directories(Day09_SubmitreTurnShandle PRIVATE src)
+target_link_libraries(Day09_SubmitreTurnShandle PRIVATE Threads::Threads)
+target_compile_options(Day09_SubmitreTurnShandle PRIVATE ${COMMON_COMPILE_OPTIONS})

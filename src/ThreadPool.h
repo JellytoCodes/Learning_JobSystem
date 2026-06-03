@@ -142,10 +142,22 @@ public:
     //   Submit 직후 job이 즉시 실행되는 게 아니라,
     //   워커 스레드 중 하나가 큐에서 꺼내 실행한다.
     // -------------------------------------------------------------------------
-    void Submit(std::function<void()> job);
-
     // -------------------------------------------------------------------------
-    // SubmitWithFuture
+    // Submit
+    //   작업을 큐에 넣고 JobHandle을 반환한다.
+    //
+    //   반환값을 무시해도 컴파일 OK — 기존 코드와 완전 호환.
+    //     pool.Submit([]{...});            // 핸들 무시, 기존 방식
+    //     auto h = pool.Submit([]{...});   // 핸들 사용, 선택적 대기 가능
+    //
+    //   [설계 트레이드오프]
+    //   모든 Submit이 shared_ptr<JobState>를 생성하므로
+    //   프레임당 수만 번 Submit하는 고성능 시나리오에서는 오버헤드가 있다.
+    //   실제 엔진에서는 핸들이 필요 없는 경우 void Submit / 핸들이 필요한 경우
+    //   SubmitWithHandle을 분리하거나, 풀에서 JobState를 재사용하는 방식을 쓴다.
+    //   이 프로젝트에서는 학습 목적으로 단일 인터페이스를 유지한다.
+    // -------------------------------------------------------------------------
+    [[nodiscard]] JobHandle Submit(std::function<void()> job);
     //   반환값이 있는 작업을 제출하고, std::future<T>를 즉시 반환한다.
     //   future.get()을 호출하면 작업 완료까지 블록한 뒤 결과를 반환한다.
     //
@@ -177,39 +189,6 @@ public:
         std::future<ReturnType> future = task->get_future();
         Submit([task]() { (*task)(); });
         return future;
-    }
-
-    // -------------------------------------------------------------------------
-    // SubmitWithHandle
-    //   작업을 제출하고 JobHandle을 반환한다.
-    //   핸들로 이 작업 하나의 완료만 선택적으로 기다릴 수 있다.
-    //
-    //   WaitAll과의 차이:
-    //     WaitAll          : 풀의 모든 작업이 끝날 때까지 기다림
-    //     handle.Wait()    : 이 작업 하나만 골라서 기다림
-    //
-    //   내부 동작:
-    //     JobState(done 플래그 + cv)를 shared_ptr로 생성.
-    //     작업 완료 시 done = true + cv.notify_all().
-    //     JobHandle은 같은 shared_ptr을 들고 다니다가
-    //     Wait() 호출 시 done이 true가 될 때까지 cv로 블록.
-    // -------------------------------------------------------------------------
-    JobHandle SubmitWithHandle(std::function<void()> job)
-    {
-        auto state = std::make_shared<JobState>();
-
-        Submit([job = std::move(job), state]() mutable
-        {
-            job();
-            // 작업 완료 — done 세팅 후 대기 중인 Wait() 깨우기
-            {
-                std::unique_lock<std::mutex> lock(state->mutex);
-                state->done.store(true, std::memory_order_release);
-            }
-            state->cv.notify_all();
-        });
-
-        return JobHandle(std::move(state));
     }
 
     // -------------------------------------------------------------------------
