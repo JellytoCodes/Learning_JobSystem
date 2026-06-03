@@ -154,7 +154,7 @@ static void RunExperiment(const std::string& label,
 
     for (uint32_t i = 0; i < jobCount; ++i)
     {
-        pool.Submit([&completed]
+        (void)pool.Submit([&completed]
         {
             // 아주 가벼운 작업 — notify 오버헤드를 더 잘 드러내기 위해 의도적으로 짧게
             volatile int x = 0;

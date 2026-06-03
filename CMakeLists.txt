@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Threads REQUIRED)
 
 if (MSVC)
-    set(COMMON_COMPILE_OPTIONS /W4)
+    set(COMMON_COMPILE_OPTIONS /W4 /utf-8)
 else()
     set(COMMON_COMPILE_OPTIONS -Wall -Wextra -pthread)
 endif()
@@ -86,3 +86,13 @@ add_executable(Day09_SubmitreTurnShandle
 target_include_directories(Day09_SubmitreTurnShandle PRIVATE src)
 target_link_libraries(Day09_SubmitreTurnShandle PRIVATE Threads::Threads)
 target_compile_options(Day09_SubmitreTurnShandle PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 10 실험]
+add_executable(Day10_WorkerWaitStarvation
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day10_WorkerWaitStarvation.cpp
+)
+target_include_directories(Day10_WorkerWaitStarvation PRIVATE src)
+target_link_libraries(Day10_WorkerWaitStarvation PRIVATE Threads::Threads)
+target_compile_options(Day10_WorkerWaitStarvation PRIVATE ${COMMON_COMPILE_OPTIONS})

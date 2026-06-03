@@ -119,7 +119,7 @@ static void Experiment1_UniformChunksEqualToThreads(ThreadPool& pool)
     const uint64_t workPerChunk = 10'000'000;
 
     for (uint32_t i = 0; i < threadCount; ++i)
-        pool.Submit([=]{ volatile auto r = UniformWork(workPerChunk); (void)r; });
+        (void)pool.Submit([=]{ volatile auto r = UniformWork(workPerChunk); (void)r; });
 
     pool.WaitAll();
 
@@ -154,7 +154,7 @@ static void Experiment2_NonUniformWork(ThreadPool& pool)
     {
         uint64_t lo = i * chunkSize;
         uint64_t hi = (i + 1 == threadCount) ? kTotal : lo + chunkSize;
-        pool.Submit([=]{ volatile auto r = CountPrimesInRange(lo, hi); (void)r; });
+        (void)pool.Submit([=]{ volatile auto r = CountPrimesInRange(lo, hi); (void)r; });
     }
 
     pool.WaitAll();
@@ -190,7 +190,7 @@ static void Experiment3_NonUniformWorkMoreChunks(ThreadPool& pool)
     {
         uint64_t lo = static_cast<uint64_t>(i) * chunkSize;
         uint64_t hi = (i + 1 == chunkCount) ? kTotal : lo + chunkSize;
-        pool.Submit([=]{ volatile auto r = CountPrimesInRange(lo, hi); (void)r; });
+        (void)pool.Submit([=]{ volatile auto r = CountPrimesInRange(lo, hi); (void)r; });
     }
 
     pool.WaitAll();

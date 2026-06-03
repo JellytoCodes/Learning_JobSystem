@@ -96,7 +96,7 @@ static uint64_t RunThreadPool(uint64_t rangeEnd, uint32_t chunkCount, uint32_t t
 
         // [=]으로 lo, hi를 값 복사 캡처.
         // 참조 캡처하면 루프 변수가 바뀌어 버릴 수 있다 (dangling reference).
-        pool.Submit([=, &results]
+        (void)pool.Submit([=, &results]
         {
             results[i] = CountPrimesInRange(lo, hi);
         });

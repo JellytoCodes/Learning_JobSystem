@@ -60,3 +60,28 @@ UE5 TaskGraph, Unity Job System 같은 엔진 내부 시스템이
 | 최적화 방지 | ✅ | ✅ |
 | 멀티스레딩 동기화 | ❌ | ✅ |
 | 성능 (상대적) | 빠름 (하지만 UB) | 느림 (캐시 동기화 비용) |
+
+---
+
+## Week 2 —
+
+### Day 08 — JobHandle
+
+`JobHandle`은 특정 작업 하나의 완료 상태를 추적한다.
+
+`WaitAll()`은 풀에 제출된 모든 작업을 기다리지만, `JobHandle::Wait()`은 연결된 작업 하나만 기다린다.  
+핸들은 복사 가능해야 하므로 완료 상태는 `shared_ptr<JobState>`로 공유한다.
+
+### Day 09 — Submit → JobHandle 반환
+
+`Submit()`이 `JobHandle`을 반환하도록 바꿔 기존 Submit 패턴과 선택적 대기를 하나의 API로 합쳤다.
+
+핸들을 이용하면 A 완료 후 B 제출 같은 단순 의존성은 표현할 수 있다.  
+하지만 메인 스레드가 `hA.Wait()`로 막히는 구조라, 자동 의존성 실행으로 가기 전 한계가 있다.
+
+### Day 10 — Worker Wait Starvation
+
+워커 스레드 안에서 다른 작업의 `JobHandle::Wait()`를 호출하면 워커 슬롯을 점유한다.
+
+모든 워커가 대기 상태가 되면 큐에 자식 작업이 남아 있어도 실행할 워커가 없어져 starvation/deadlock이 발생할 수 있다.  
+따라서 엔진식 JobSystem은 워커를 막는 Wait 대신 dependency counter, continuation, work stealing/helping wait 같은 구조가 필요하다.

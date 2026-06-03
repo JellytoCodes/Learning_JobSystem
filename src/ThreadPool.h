@@ -187,7 +187,7 @@ public:
             std::forward<Func>(func)
         );
         std::future<ReturnType> future = task->get_future();
-        Submit([task]() { (*task)(); });
+        (void)Submit([task]() { (*task)(); });
         return future;
     }
 

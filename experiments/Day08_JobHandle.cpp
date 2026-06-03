@@ -41,7 +41,7 @@ static void Experiment1_BasicUsage(ThreadPool& pool)
 
     // 실제 작업 제출
     std::atomic<bool> ran{ false };
-    auto handle = pool.SubmitWithHandle([&ran]
+    auto handle = pool.Submit([&ran]
     {
         SleepMs(100);   // 100ms 걸리는 작업
         ran = true;
@@ -78,8 +78,8 @@ static void Experiment2_SelectiveWait(ThreadPool& pool)
         std::cout << "  [WaitAll 방식]\n";
         auto start = Clock::now();
 
-        pool.Submit([] { SleepMs(500); });   // 느린 작업
-        pool.Submit([] { SleepMs(50);  });   // 빠른 작업
+        (void)pool.Submit([] { SleepMs(500); });   // 느린 작업
+        (void)pool.Submit([] { SleepMs(50);  });   // 빠른 작업
 
         pool.WaitAll();   // 500ms짜리가 끝날 때까지 기다림
 
@@ -93,8 +93,8 @@ static void Experiment2_SelectiveWait(ThreadPool& pool)
         std::cout << "  [JobHandle 방식]\n";
         auto start = Clock::now();
 
-        auto slowHandle = pool.SubmitWithHandle([] { SleepMs(500); });
-        auto fastHandle = pool.SubmitWithHandle([] { SleepMs(50);  });
+        auto slowHandle = pool.Submit([] { SleepMs(500); });
+        auto fastHandle = pool.Submit([] { SleepMs(50);  });
 
         fastHandle.Wait();   // 빠른 작업만 기다림
         Duration fastElapsed = Clock::now() - start;
@@ -115,7 +115,7 @@ static void Experiment3_IsDonePolling(ThreadPool& pool)
     std::cout << "\n[실험 3] IsDone() 논블로킹 폴링\n";
     std::cout << "---------------------------------------------\n";
 
-    auto handle = pool.SubmitWithHandle([] { SleepMs(300); });
+    auto handle = pool.Submit([] { SleepMs(300); });
 
     std::cout << "  작업 실행 중, 50ms마다 IsDone() 확인:\n";
     int checkCount = 0;
@@ -137,7 +137,7 @@ static void Experiment4_HandleCopy(ThreadPool& pool)
     std::cout << "\n[실험 4] 핸들 복사 — 여러 스레드에서 같은 작업 대기\n";
     std::cout << "---------------------------------------------\n";
 
-    auto handle1 = pool.SubmitWithHandle([] { SleepMs(200); });
+    auto handle1 = pool.Submit([] { SleepMs(200); });
     auto handle2 = handle1;   // 복사 — 같은 JobState를 공유
 
     std::cout << "  handle1과 handle2는 같은 작업을 가리킴\n";

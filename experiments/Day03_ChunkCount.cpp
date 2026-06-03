@@ -78,7 +78,7 @@ static double MeasureThreadPool(uint64_t rangeEnd, uint32_t chunkCount, uint32_t
     {
         uint64_t lo = static_cast<uint64_t>(i) * chunkSize;
         uint64_t hi = (i + 1 == chunkCount) ? rangeEnd : lo + chunkSize;
-        pool.Submit([=, &results] { results[i] = CountPrimesInRange(lo, hi); });
+        (void)pool.Submit([=, &results] { results[i] = CountPrimesInRange(lo, hi); });
     }
     pool.WaitAll();
 

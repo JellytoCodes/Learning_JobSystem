@@ -80,7 +80,7 @@ static void Experiment2_MultipleFutures(ThreadPool& pool)
     std::vector<int> results_A(kCount, 0);
     for (int i = 0; i < kCount; ++i)
     {
-        pool.Submit([i, &results_A] { results_A[i] = Square(i); });
+        (void)pool.Submit([i, &results_A] { results_A[i] = Square(i); });
     }
     pool.WaitAll();
 
@@ -132,7 +132,7 @@ static void Experiment3_ExceptionPropagation(ThreadPool& pool)
     //   std::terminate() 호출 → 프로그램 크래시
     // → 그래서 Submit 내부의 job은 예외를 던지면 안 된다 (직접 catch 필요)
     std::cout << "  [Submit] 예외 발생 시 catch해서 처리:\n";
-    pool.Submit([]
+    (void)pool.Submit([] 
     {
         try { MightThrow(-1); }
         catch (const std::exception& e)
