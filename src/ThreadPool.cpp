@@ -50,34 +50,95 @@ ThreadPool::~ThreadPool()
 }
 
 // =============================================================================
-// Submit — 작업을 큐에 넣는다
+// CompleteJobState — 작업 완료 상태 전파 + continuation 실행
 // =============================================================================
-JobHandle ThreadPool::Submit(std::function<void()> job)
+void ThreadPool::CompleteJobState(const std::shared_ptr<JobState>& state)
 {
-    auto state = std::make_shared<JobState>();
+    std::vector<std::function<void()>> continuations;
+    {
+        std::unique_lock<std::mutex> lock(state->mutex);
+        state->done.store(true, std::memory_order_release);
+        continuations.swap(state->continuations);
+    }
 
+    state->cv.notify_all();
+
+    // continuation은 JobState 락 밖에서 실행한다.
+    // 후속 작업 제출 중 다른 락(_queueMutex)을 잡을 수 있으므로 락 중첩을 피한다.
+    for (auto& continuation : continuations)
+        continuation();
+}
+
+// =============================================================================
+// EnqueueWithState — 지정된 JobState와 연결된 작업을 큐에 넣는다
+// =============================================================================
+void ThreadPool::EnqueueWithState(std::function<void()> job, std::shared_ptr<JobState> state)
+{
     {
         std::unique_lock<std::mutex> lock(_queueMutex);
 
         if (_stop)
             throw std::runtime_error("ThreadPool: 종료된 풀에 작업을 제출할 수 없습니다.");
 
-        // 원본 job + state를 캡처하는 래퍼 람다를 큐에 넣는다.
-        // 실행 완료 시 state->done = true + cv.notify_all().
-        _jobQueue.push([job = std::move(job), state]() mutable
+        _jobQueue.push([job = std::move(job), state = std::move(state)]() mutable
         {
             job();
-            {
-                std::unique_lock<std::mutex> lock(state->mutex);
-                state->done.store(true, std::memory_order_release);
-            }
-            state->cv.notify_all();
+            CompleteJobState(state);
         });
 
         ++_pendingJobs;
     }
 
     _workerCv.notify_one();
+}
+
+// =============================================================================
+// Submit — 작업을 큐에 넣는다
+// =============================================================================
+JobHandle ThreadPool::Submit(std::function<void()> job)
+{
+    auto state = std::make_shared<JobState>();
+    EnqueueWithState(std::move(job), state);
+    return JobHandle(std::move(state));
+}
+
+// =============================================================================
+// SubmitAfter — 모든 선행 작업 완료 후 후속 작업 자동 제출
+// =============================================================================
+JobHandle ThreadPool::SubmitAfter(
+    const std::vector<JobHandle>& dependencies,
+    std::function<void()> job)
+{
+    auto state      = std::make_shared<JobState>();
+    auto remaining  = std::make_shared<std::atomic<uint32_t>>(
+        static_cast<uint32_t>(dependencies.size()));
+    auto submitOnce = std::make_shared<std::atomic<bool>>(false);
+    auto jobPtr     = std::make_shared<std::function<void()>>(std::move(job));
+
+    auto submitIfReady = [this, state, remaining, submitOnce, jobPtr]
+    {
+        if (remaining->load(std::memory_order_acquire) != 0)
+            return;
+
+        if (!submitOnce->exchange(true, std::memory_order_acq_rel))
+            EnqueueWithState(std::move(*jobPtr), state);
+    };
+
+    if (dependencies.empty())
+    {
+        submitIfReady();
+        return JobHandle(std::move(state));
+    }
+
+    for (const JobHandle& dependency : dependencies)
+    {
+        dependency.AddContinuation([remaining, submitIfReady]
+        {
+            if (remaining->fetch_sub(1, std::memory_order_acq_rel) == 1)
+                submitIfReady();
+        });
+    }
+
     return JobHandle(std::move(state));
 }
 

@@ -85,3 +85,10 @@ UE5 TaskGraph, Unity Job System 같은 엔진 내부 시스템이
 
 모든 워커가 대기 상태가 되면 큐에 자식 작업이 남아 있어도 실행할 워커가 없어져 starvation/deadlock이 발생할 수 있다.  
 따라서 엔진식 JobSystem은 워커를 막는 Wait 대신 dependency counter, continuation, work stealing/helping wait 같은 구조가 필요하다.
+
+### Day 11 — Dependency Counter / Continuation
+
+`SubmitAfter(dependencies, job)`을 추가해 모든 선행 작업이 완료된 뒤 후속 작업이 자동 제출되도록 만들었다.
+
+각 선행 작업 완료 시 continuation이 atomic counter를 감소시키고, 마지막 선행 작업이 끝나는 순간 후속 작업을 큐에 넣는다.
+이 방식은 워커 스레드가 `Wait()`로 막히지 않으므로 Day 10의 starvation 위험을 줄이고, 작업 그래프를 큐 기반으로 흘려보내는 엔진식 구조에 가까워진다.

@@ -96,3 +96,13 @@ add_executable(Day10_WorkerWaitStarvation
 target_include_directories(Day10_WorkerWaitStarvation PRIVATE src)
 target_link_libraries(Day10_WorkerWaitStarvation PRIVATE Threads::Threads)
 target_compile_options(Day10_WorkerWaitStarvation PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 11 실험]
+add_executable(Day11_DependencyCounter
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day11_DependencyCounter.cpp
+)
+target_include_directories(Day11_DependencyCounter PRIVATE src)
+target_link_libraries(Day11_DependencyCounter PRIVATE Threads::Threads)
+target_compile_options(Day11_DependencyCounter PRIVATE ${COMMON_COMPILE_OPTIONS})

@@ -28,6 +28,7 @@ struct JobState
     std::atomic<bool>       done{ false };
     std::mutex              mutex;
     std::condition_variable cv;
+    std::vector<std::function<void()>> continuations;
 };
 
 // =============================================================================
@@ -86,6 +87,29 @@ public:
     bool IsValid() const { return _state != nullptr; }
 
 private:
+    friend class ThreadPool;
+
+    void AddContinuation(std::function<void()> continuation) const
+    {
+        if (!_state)
+        {
+            continuation();
+            return;
+        }
+
+        bool runNow = false;
+        {
+            std::unique_lock<std::mutex> lock(_state->mutex);
+            if (_state->done.load(std::memory_order_acquire))
+                runNow = true;
+            else
+                _state->continuations.push_back(std::move(continuation));
+        }
+
+        if (runNow)
+            continuation();
+    }
+
     std::shared_ptr<JobState> _state;
 };
 
@@ -158,6 +182,25 @@ public:
     //   이 프로젝트에서는 학습 목적으로 단일 인터페이스를 유지한다.
     // -------------------------------------------------------------------------
     [[nodiscard]] JobHandle Submit(std::function<void()> job);
+
+    // -------------------------------------------------------------------------
+    // SubmitAfter
+    //   dependencies에 들어 있는 모든 JobHandle이 완료된 뒤 job을 자동 제출한다.
+    //
+    //   Day 10에서 확인한 문제:
+    //     워커 안에서 child.Wait()를 호출하면 워커 슬롯이 대기 상태로 점유된다.
+    //
+    //   SubmitAfter 방식:
+    //     각 선행 작업 완료 시 atomic counter를 감소시키고,
+    //     마지막 선행 작업이 끝나는 순간 후속 작업을 큐에 넣는다.
+    //     따라서 워커가 Wait()로 막히지 않는다.
+    //
+    //   반환되는 JobHandle은 후속 작업(job)의 완료 상태를 추적한다.
+    // -------------------------------------------------------------------------
+    [[nodiscard]] JobHandle SubmitAfter(
+        const std::vector<JobHandle>& dependencies,
+        std::function<void()> job);
+
     //   반환값이 있는 작업을 제출하고, std::future<T>를 즉시 반환한다.
     //   future.get()을 호출하면 작업 완료까지 블록한 뒤 결과를 반환한다.
     //
@@ -241,6 +284,9 @@ public:
     }
 
 private:
+    void EnqueueWithState(std::function<void()> job, std::shared_ptr<JobState> state);
+    static void CompleteJobState(const std::shared_ptr<JobState>& state);
+
     // -------------------------------------------------------------------------
     // WorkerLoop
     //   threadIdx: 이 스레드의 고유 인덱스 (통계 기록용).
