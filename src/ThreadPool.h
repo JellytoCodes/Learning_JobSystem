@@ -11,6 +11,7 @@
 #include <future>          // std::future, std::packaged_task
 #include <memory>          // std::shared_ptr
 #include <type_traits>     // std::invoke_result_t
+#include <exception>       // std::exception_ptr
 
 // =============================================================================
 // JobState (내부 구현용)
@@ -29,6 +30,7 @@ struct JobState
     std::mutex              mutex;
     std::condition_variable cv;
     std::vector<std::function<void()>> continuations;
+    std::exception_ptr      exception;
 };
 
 // =============================================================================
@@ -64,8 +66,16 @@ public:
     void Wait() const
     {
         if (!_state) return;
-        std::unique_lock<std::mutex> lock(_state->mutex);
-        _state->cv.wait(lock, [this] { return _state->done.load(std::memory_order_acquire); });
+
+        std::exception_ptr exception;
+        {
+            std::unique_lock<std::mutex> lock(_state->mutex);
+            _state->cv.wait(lock, [this] { return _state->done.load(std::memory_order_acquire); });
+            exception = _state->exception;
+        }
+
+        if (exception)
+            std::rethrow_exception(exception);
     }
 
     // -------------------------------------------------------------------------
@@ -77,6 +87,19 @@ public:
     {
         if (!_state) return true;
         return _state->done.load(std::memory_order_acquire);
+    }
+
+    // -------------------------------------------------------------------------
+    // HasException
+    //   작업이 예외를 던졌는지 확인한다.
+    //   Wait()는 완료 대기 후 예외를 다시 던지므로,
+    //   예외 여부만 보고 싶을 때 사용하는 논블로킹 확인용 함수.
+    // -------------------------------------------------------------------------
+    bool HasException() const
+    {
+        if (!_state) return false;
+        std::unique_lock<std::mutex> lock(_state->mutex);
+        return _state->exception != nullptr;
     }
 
     // -------------------------------------------------------------------------
@@ -285,7 +308,9 @@ public:
 
 private:
     void EnqueueWithState(std::function<void()> job, std::shared_ptr<JobState> state);
-    static void CompleteJobState(const std::shared_ptr<JobState>& state);
+    static void CompleteJobState(
+        const std::shared_ptr<JobState>& state,
+        std::exception_ptr exception = nullptr);
 
     // -------------------------------------------------------------------------
     // WorkerLoop

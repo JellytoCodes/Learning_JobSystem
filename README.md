@@ -92,3 +92,13 @@ UE5 TaskGraph, Unity Job System 같은 엔진 내부 시스템이
 
 각 선행 작업 완료 시 continuation이 atomic counter를 감소시키고, 마지막 선행 작업이 끝나는 순간 후속 작업을 큐에 넣는다.
 이 방식은 워커 스레드가 `Wait()`로 막히지 않으므로 Day 10의 starvation 위험을 줄이고, 작업 그래프를 큐 기반으로 흘려보내는 엔진식 구조에 가까워진다.
+
+### Day 12 — Exception Propagation / Worker Survival
+
+`Submit()` 작업 내부에서 예외가 발생해도 워커 스레드가 종료되지 않도록 작업 래퍼에서 예외를 잡고 `JobState`에 저장한다.
+
+`JobHandle::Wait()`는 완료를 기다린 뒤 저장된 `std::exception_ptr`을 다시 던진다.
+따라서 호출자는 실패를 명시적으로 처리할 수 있고, 워커는 다음 작업을 계속 처리한다.
+
+의존성 카운터는 성공 여부가 아니라 완료 여부를 추적한다.
+선행 작업이 실패해도 후속 작업은 실행되므로, 실패 시 취소/전파/fallback 같은 정책은 별도로 설계해야 한다.

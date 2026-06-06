@@ -106,3 +106,13 @@ add_executable(Day11_DependencyCounter
 target_include_directories(Day11_DependencyCounter PRIVATE src)
 target_link_libraries(Day11_DependencyCounter PRIVATE Threads::Threads)
 target_compile_options(Day11_DependencyCounter PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 12 실험]
+add_executable(Day12_ExceptionPropagation
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day12_ExceptionPropagation.cpp
+)
+target_include_directories(Day12_ExceptionPropagation PRIVATE src)
+target_link_libraries(Day12_ExceptionPropagation PRIVATE Threads::Threads)
+target_compile_options(Day12_ExceptionPropagation PRIVATE ${COMMON_COMPILE_OPTIONS})

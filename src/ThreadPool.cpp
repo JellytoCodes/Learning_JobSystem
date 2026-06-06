@@ -52,11 +52,14 @@ ThreadPool::~ThreadPool()
 // =============================================================================
 // CompleteJobState — 작업 완료 상태 전파 + continuation 실행
 // =============================================================================
-void ThreadPool::CompleteJobState(const std::shared_ptr<JobState>& state)
+void ThreadPool::CompleteJobState(
+    const std::shared_ptr<JobState>& state,
+    std::exception_ptr exception)
 {
     std::vector<std::function<void()>> continuations;
     {
         std::unique_lock<std::mutex> lock(state->mutex);
+        state->exception = exception;
         state->done.store(true, std::memory_order_release);
         continuations.swap(state->continuations);
     }
@@ -82,8 +85,15 @@ void ThreadPool::EnqueueWithState(std::function<void()> job, std::shared_ptr<Job
 
         _jobQueue.push([job = std::move(job), state = std::move(state)]() mutable
         {
-            job();
-            CompleteJobState(state);
+            try
+            {
+                job();
+                CompleteJobState(state);
+            }
+            catch (...)
+            {
+                CompleteJobState(state, std::current_exception());
+            }
         });
 
         ++_pendingJobs;
