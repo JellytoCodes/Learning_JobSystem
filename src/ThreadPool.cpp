@@ -153,6 +153,60 @@ JobHandle ThreadPool::SubmitAfter(
 }
 
 // =============================================================================
+// SubmitAfterAllSucceeded — 모든 선행 작업 성공 후 후속 작업 자동 제출
+// =============================================================================
+JobHandle ThreadPool::SubmitAfterAllSucceeded(
+    const std::vector<JobHandle>& dependencies,
+    std::function<void()> job)
+{
+    auto state      = std::make_shared<JobState>();
+    auto remaining  = std::make_shared<std::atomic<uint32_t>>(
+        static_cast<uint32_t>(dependencies.size()));
+    auto submitOnce = std::make_shared<std::atomic<bool>>(false);
+    auto jobPtr     = std::make_shared<std::function<void()>>(std::move(job));
+
+    auto submitOrCancelIfReady = [this, dependencies, state, remaining, submitOnce, jobPtr]
+    {
+        if (remaining->load(std::memory_order_acquire) != 0)
+            return;
+
+        if (submitOnce->exchange(true, std::memory_order_acq_rel))
+            return;
+
+        for (const JobHandle& dependency : dependencies)
+        {
+            if (dependency.GetException())
+            {
+                CompleteJobState(
+                    state,
+                    std::make_exception_ptr(JobCanceledException(
+                        "ThreadPool: 선행 작업 실패로 후속 작업이 취소되었습니다.")));
+                return;
+            }
+        }
+
+        EnqueueWithState(std::move(*jobPtr), state);
+    };
+
+    if (dependencies.empty())
+    {
+        submitOrCancelIfReady();
+        return JobHandle(std::move(state));
+    }
+
+    for (const JobHandle& dependency : dependencies)
+    {
+        dependency.AddContinuation([remaining, submitOrCancelIfReady]
+        {
+            if (remaining->fetch_sub(1, std::memory_order_acq_rel) == 1)
+                submitOrCancelIfReady();
+        });
+    }
+
+    return JobHandle(std::move(state));
+}
+
+// =============================================================================
 // WaitAll — 모든 작업이 완료될 때까지 대기
 // =============================================================================
 void ThreadPool::WaitAll()

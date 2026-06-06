@@ -102,3 +102,12 @@ UE5 TaskGraph, Unity Job System 같은 엔진 내부 시스템이
 
 의존성 카운터는 성공 여부가 아니라 완료 여부를 추적한다.
 선행 작업이 실패해도 후속 작업은 실행되므로, 실패 시 취소/전파/fallback 같은 정책은 별도로 설계해야 한다.
+
+### Day 13 — Failure Policy: Completion vs Success
+
+`SubmitAfterAllSucceeded(dependencies, job)`을 추가해 모든 선행 작업이 성공했을 때만 후속 작업을 실행하는 정책을 만들었다.
+
+기존 `SubmitAfter()`는 완료 기반 continuation이라 선행 작업이 실패해도 후속 작업을 실행한다.
+반면 `SubmitAfterAllSucceeded()`는 선행 작업 중 하나라도 예외를 저장했으면 후속 작업을 실행하지 않고 `JobCanceledException`으로 완료시킨다.
+
+핵심은 dependency counter는 완료 순서를 관리하고, 실패 시 계속 실행/취소/fallback 같은 정책은 그 위에 별도 계층으로 얹을 수 있다는 점이다.

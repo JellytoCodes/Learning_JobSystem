@@ -12,6 +12,7 @@
 #include <memory>          // std::shared_ptr
 #include <type_traits>     // std::invoke_result_t
 #include <exception>       // std::exception_ptr
+#include <string>          // std::string
 
 // =============================================================================
 // JobState (내부 구현용)
@@ -31,6 +32,13 @@ struct JobState
     std::condition_variable cv;
     std::vector<std::function<void()>> continuations;
     std::exception_ptr      exception;
+};
+
+class JobCanceledException : public std::runtime_error
+{
+public:
+    explicit JobCanceledException(const std::string& message)
+        : std::runtime_error(message) {}
 };
 
 // =============================================================================
@@ -133,6 +141,13 @@ private:
             continuation();
     }
 
+    std::exception_ptr GetException() const
+    {
+        if (!_state) return nullptr;
+        std::unique_lock<std::mutex> lock(_state->mutex);
+        return _state->exception;
+    }
+
     std::shared_ptr<JobState> _state;
 };
 
@@ -221,6 +236,21 @@ public:
     //   반환되는 JobHandle은 후속 작업(job)의 완료 상태를 추적한다.
     // -------------------------------------------------------------------------
     [[nodiscard]] JobHandle SubmitAfter(
+        const std::vector<JobHandle>& dependencies,
+        std::function<void()> job);
+
+    // -------------------------------------------------------------------------
+    // SubmitAfterAllSucceeded
+    //   dependencies가 모두 성공했을 때만 job을 자동 제출한다.
+    //
+    //   SubmitAfter와의 차이:
+    //     SubmitAfter             : 선행 작업의 성공/실패와 무관하게 "완료" 후 실행
+    //     SubmitAfterAllSucceeded : 선행 작업 중 하나라도 실패하면 후속 작업 취소
+    //
+    //   후속 작업이 취소되면 반환된 JobHandle::Wait()에서
+    //   JobCanceledException이 다시 던져진다.
+    // -------------------------------------------------------------------------
+    [[nodiscard]] JobHandle SubmitAfterAllSucceeded(
         const std::vector<JobHandle>& dependencies,
         std::function<void()> job);
 

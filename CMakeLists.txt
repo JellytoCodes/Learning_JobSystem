@@ -116,3 +116,13 @@ add_executable(Day12_ExceptionPropagation
 target_include_directories(Day12_ExceptionPropagation PRIVATE src)
 target_link_libraries(Day12_ExceptionPropagation PRIVATE Threads::Threads)
 target_compile_options(Day12_ExceptionPropagation PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 13 실험]
+add_executable(Day13_FailurePolicy
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day13_FailurePolicy.cpp
+)
+target_include_directories(Day13_FailurePolicy PRIVATE src)
+target_link_libraries(Day13_FailurePolicy PRIVATE Threads::Threads)
+target_compile_options(Day13_FailurePolicy PRIVATE ${COMMON_COMPILE_OPTIONS})
