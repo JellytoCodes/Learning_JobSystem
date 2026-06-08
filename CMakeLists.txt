@@ -126,3 +126,15 @@ add_executable(Day13_FailurePolicy
 target_include_directories(Day13_FailurePolicy PRIVATE src)
 target_link_libraries(Day13_FailurePolicy PRIVATE Threads::Threads)
 target_compile_options(Day13_FailurePolicy PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+############################## 3 Weeks
+
+# [Day 15 실험]
+add_executable(Day15_HelpingWait
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day15_HelpingWait.cpp
+)
+target_include_directories(Day15_HelpingWait PRIVATE src)
+target_link_libraries(Day15_HelpingWait PRIVATE Threads::Threads)
+target_compile_options(Day15_HelpingWait PRIVATE ${COMMON_COMPILE_OPTIONS})

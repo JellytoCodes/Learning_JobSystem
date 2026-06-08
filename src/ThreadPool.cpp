@@ -223,6 +223,61 @@ void ThreadPool::WaitAll()
 }
 
 // =============================================================================
+// WaitWithHelping — 기다리는 동안 큐의 다른 작업을 직접 실행
+// =============================================================================
+void ThreadPool::WaitWithHelping(const JobHandle& handle)
+{
+    while (!handle.IsDone())
+    {
+        if (!TryExecuteOneJob(nullptr))
+            std::this_thread::yield();
+    }
+
+    // 완료된 작업이 예외를 저장했다면 일반 Wait와 동일하게 호출자에게 재전파한다.
+    handle.Wait();
+}
+
+// =============================================================================
+// TryExecuteOneJob — 큐에서 작업 하나를 꺼내 현재 스레드에서 실행
+// =============================================================================
+bool ThreadPool::TryExecuteOneJob(uint32_t* workerThreadIdx)
+{
+    std::function<void()> job;
+
+    {
+        std::unique_lock<std::mutex> lock(_queueMutex);
+        if (_jobQueue.empty())
+            return false;
+
+        job = std::move(_jobQueue.front());
+        _jobQueue.pop();
+    }
+
+    ExecuteJob(std::move(job), workerThreadIdx);
+    return true;
+}
+
+// =============================================================================
+// ExecuteJob — 작업 실행 후 통계와 pending count 정리
+// =============================================================================
+void ThreadPool::ExecuteJob(std::function<void()> job, uint32_t* workerThreadIdx)
+{
+    job();
+
+    // helper로 실행한 작업은 특정 worker index가 없으므로 per-thread stats에서 제외한다.
+    if (workerThreadIdx)
+        ++_perThreadJobCount[*workerThreadIdx];
+
+    const uint32_t remaining = _pendingJobs.fetch_sub(1) - 1;
+
+    if (remaining == 0)
+    {
+        std::unique_lock<std::mutex> lock(_completionMutex);
+        _completionCv.notify_all();
+    }
+}
+
+// =============================================================================
 // WorkerLoop — 각 워커 스레드가 실행하는 루프
 // =============================================================================
 void ThreadPool::WorkerLoop(uint32_t threadIdx)
@@ -247,18 +302,6 @@ void ThreadPool::WorkerLoop(uint32_t threadIdx)
 
         }
 
-        job();
-
-        // 이 스레드의 처리 카운터 증가.
-        // 자신의 인덱스에만 접근하므로 다른 스레드와 경합 없음.
-        ++_perThreadJobCount[threadIdx];
-
-        const uint32_t remaining = _pendingJobs.fetch_sub(1) - 1;
-
-        if (remaining == 0)
-        {
-            std::unique_lock<std::mutex> lock(_completionMutex);
-            _completionCv.notify_all();
-        }
+        ExecuteJob(std::move(job), &threadIdx);
     }
 }

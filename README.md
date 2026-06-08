@@ -20,6 +20,7 @@ UE5 TaskGraph, Unity Job System 같은 엔진 내부 시스템이 어떻게 동�
 | 전체 완료 대기 | `ThreadPool::WaitAll()` |
 | 반환값 있는 작업 | `ThreadPool::SubmitWithFuture()` |
 | 특정 작업 추적 | `JobHandle::Wait()`, `JobHandle::IsDone()` |
+| 대기 중 작업 돕기 | `ThreadPool::WaitWithHelping(handle)` |
 | 의존성 기반 후속 작업 | `SubmitAfter(dependencies, job)` |
 | 성공 기반 후속 작업 | `SubmitAfterAllSucceeded(dependencies, job)` |
 | 작업 예외 전파 | `std::exception_ptr` 저장 후 `JobHandle::Wait()`에서 재전파 |
@@ -140,16 +141,34 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 
 ---
 
+## Week 3 — Wait 정책과 큐 구조
+
+| Day | 주제 | 핵심 |
+|-----|------|------|
+| Day 15 | Helping Wait | 기다리는 동안 큐의 다른 작업을 직접 실행해 starvation 위험을 줄인다. |
+
+### Day 15 — Helping Wait
+
+`ThreadPool::WaitWithHelping(handle)`을 추가했습니다.
+일반 `JobHandle::Wait()`는 호출 스레드를 잠재우지만, `WaitWithHelping()`은 기다리는 동안 큐에서 작업을 꺼내 현재 스레드가 직접 실행합니다.
+
+Day 10의 문제는 워커가 `Wait()`로 막히면 큐에 남은 자식 작업을 실행할 스레드가 부족해진다는 점이었습니다.
+Helping Wait은 기다리는 워커도 진행에 기여하게 만들어 이 starvation 위험을 줄입니다.
+
+다만 현재 구현은 전역 큐에서만 작업을 꺼냅니다.
+실제 엔진에 가까워지려면 worker local queue, work stealing, 재진입 깊이 제한 같은 정책이 추가로 필요합니다.
+
+---
+
 ## 다음 방향
 
 Week 3에서 다루기 좋은 후보:
 
 | 후보 | 이유 |
 |------|------|
-| Helping Wait | 메인/워커가 기다리는 동안 큐의 다른 작업을 도와 starvation을 줄인다. |
 | Work Stealing | 전역 큐 병목을 줄이고 워커별 local queue를 실험한다. |
 | Job Graph Builder | 여러 job과 dependency를 한 번에 선언하는 API를 만든다. |
 | JobState Pool | `shared_ptr<JobState>` 할당 비용을 줄이는 재사용 구조를 실험한다. |
 
-개인적으로는 Day 15에서 **Helping Wait**를 먼저 보는 것이 좋습니다.
-Day 10에서 확인한 worker wait starvation 문제와 직접 연결되고, 이후 work stealing으로 확장하기 쉽습니다.
+Day 16 후보로는 **Work Stealing**이 가장 자연스럽습니다.
+Helping Wait이 전역 큐 기반으로 진행을 돕는 방식이라면, Work Stealing은 워커별 local queue를 두고 부하를 훔쳐오는 구조로 확장합니다.

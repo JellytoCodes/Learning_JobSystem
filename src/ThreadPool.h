@@ -297,6 +297,20 @@ public:
     void WaitAll();
 
     // -------------------------------------------------------------------------
+    // WaitWithHelping
+    //   handle이 완료될 때까지 기다리되, 기다리는 동안 큐에 남은 작업을 직접 실행한다.
+    //
+    //   일반 Wait()와의 차이:
+    //     JobHandle::Wait() : 호출 스레드를 잠재움
+    //     WaitWithHelping  : 호출 스레드가 대기 중에도 다른 작업을 처리
+    //
+    //   Day 10의 worker wait starvation을 완화하는 방향이다.
+    //   실제 엔진에서는 전역 큐뿐 아니라 worker local queue와 work stealing까지
+    //   함께 고려하지만, 여기서는 helping wait의 핵심 아이디어만 실험한다.
+    // -------------------------------------------------------------------------
+    void WaitWithHelping(const JobHandle& handle);
+
+    // -------------------------------------------------------------------------
     // GetThreadCount
     //   현재 생성된 워커 스레드 수 반환.
     // -------------------------------------------------------------------------
@@ -341,6 +355,8 @@ private:
     static void CompleteJobState(
         const std::shared_ptr<JobState>& state,
         std::exception_ptr exception = nullptr);
+    bool TryExecuteOneJob(uint32_t* workerThreadIdx);
+    void ExecuteJob(std::function<void()> job, uint32_t* workerThreadIdx);
 
     // -------------------------------------------------------------------------
     // WorkerLoop
