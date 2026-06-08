@@ -1,113 +1,155 @@
 # JobSystem — C++ 멀티스레딩 학습 프로젝트
 
-> C++17 표준 라이브러리만으로 Thread Pool을 직접 구현하고,  
+> C++17 표준 라이브러리만으로 Thread Pool을 직접 구현하고,
 > 각 설계 결정의 이유를 실험으로 확인하는 학습 프로젝트입니다.
 
 ---
 
 ## 목표
 
-UE5 TaskGraph, Unity Job System 같은 엔진 내부 시스템이  
-어떻게 동작하는지 직접 구현해서 이해합니다.  
-외부 라이브러리 없이 `std::thread`, `std::mutex`, `std::atomic`, `std::condition_variable`만 사용합니다.
+UE5 TaskGraph, Unity Job System 같은 엔진 내부 시스템이 어떻게 동작하는지 직접 구현해서 이해합니다.
+외부 라이브러리 없이 `std::thread`, `std::mutex`, `std::atomic`, `std::condition_variable`을 중심으로 실험합니다.
 
 ---
 
-## Week 1 — 
+## 현재 구현 상태
 
-### Day 01 — Spurious Wakeup
-
-`condition_variable::wait(lock)`만 쓰면 OS가 이유 없이 스레드를 깨울 수 있다.  
-이를 **spurious wakeup**이라 하며, POSIX 표준에서 허용된 동작이다.
-
-### Day 02 — notify_one vs notify_all
-
-`notify_all`로 스레드 N개를 깨우면 1개만 작업을 가져가고  
-나머지 N-1개는 다시 잠든다. 이 과정이 **Thundering Herd** 문제다.
-
-### Day 03 — 청크 수와 Speedup
-
-| 청크 수 | 현상 |
-|--------|------|
-| 청크 < 스레드 수 | 일부 스레드가 놀음 → Speedup 낮음 |
-| 청크 = 스레드 수 | 작업량 불균일 시 Tail Latency 발생 |
-| 청크 = 스레드 × 4~8 | 동적 로드 밸런싱, 실전 스윗 스팟 |
-| 청크 >> 스레드 수 | Submit/Queue 오버헤드 역전 |
-
-### Day 04 — SubmitWithFuture
-
-반환값 있는 작업을 제출하고 `std::future<T>`로 결과를 받는다.
-
-**예외 전파:** 작업 내 예외가 future에 저장되어 `get()` 호출 시 재발생한다.
-
-### Day 05 — 스레드별 작업 분포
-
-각 워커 스레드가 처리한 작업 수를 추적해 로드 밸런싱 상태를 시각화한다.
-
-**주요 구현 포인트:**  
-`std::atomic`은 복사/이동 불가이므로 `vector<atomic>::resize()` 사용 불가.  
-→ `unique_ptr<atomic<uint64_t>[]>` + `make_unique<T[]>(n)` 패턴으로 해결.
-
-### Day 06 — 데이터 레이스
-
-`counter++`는 LOAD → ADD → STORE 3단계로, 원자적이지 않다.
-
-데이터 레이스는 **비결정적**이라 가끔 맞아서 버그를 숨긴다.  
-`-fsanitize=thread` (ThreadSanitizer)로 탐지 가능.
-
-| | volatile int | std::atomic |
-|--|--|--|
-| 최적화 방지 | ✅ | ✅ |
-| 멀티스레딩 동기화 | ❌ | ✅ |
-| 성능 (상대적) | 빠름 (하지만 UB) | 느림 (캐시 동기화 비용) |
+| 기능 | 구현 |
+|------|------|
+| 기본 스케줄링 | `ThreadPool::Submit()` |
+| 전체 완료 대기 | `ThreadPool::WaitAll()` |
+| 반환값 있는 작업 | `ThreadPool::SubmitWithFuture()` |
+| 특정 작업 추적 | `JobHandle::Wait()`, `JobHandle::IsDone()` |
+| 의존성 기반 후속 작업 | `SubmitAfter(dependencies, job)` |
+| 성공 기반 후속 작업 | `SubmitAfterAllSucceeded(dependencies, job)` |
+| 작업 예외 전파 | `std::exception_ptr` 저장 후 `JobHandle::Wait()`에서 재전파 |
+| 실패 정책 | 완료 기반 실행 vs 성공 기반 취소 |
 
 ---
 
-## Week 2 —
+## 빌드와 실행
+
+Visual Studio CMake preset 기준:
+
+```powershell
+cmake --preset x64-debug
+cmake --build out\build\x64-debug
+```
+
+특정 실험만 실행:
+
+```powershell
+out\build\x64-debug\Day13_FailurePolicy.exe
+```
+
+각 실험 파일 상단에도 `g++` 기준 단일 빌드 명령을 남겨두었습니다.
+
+---
+
+## Week 1 — ThreadPool 기초
+
+| Day | 주제 | 핵심 |
+|-----|------|------|
+| Day 01 | Spurious Wakeup | `condition_variable::wait()`는 반드시 predicate와 함께 써야 한다. |
+| Day 02 | `notify_one` vs `notify_all` | 불필요하게 많은 스레드를 깨우면 thundering herd가 생긴다. |
+| Day 03 | 청크 수와 Speedup | 청크 수는 스레드 수보다 충분히 많아야 tail latency를 줄일 수 있다. |
+| Day 04 | `SubmitWithFuture` | 반환값과 예외를 `std::future<T>`로 받을 수 있다. |
+| Day 05 | 스레드별 작업 분포 | per-thread counter로 로드 밸런싱 상태를 관찰한다. |
+| Day 06 | 데이터 레이스 | `counter++`는 원자적이지 않으며, 데이터 레이스는 UB다. |
+
+### Week 1 리마인드
+
+ThreadPool의 기본은 큐, mutex, condition_variable입니다.
+하지만 성능과 안정성은 세부 정책에서 갈립니다.
+스레드를 몇 개 만들지, 작업을 얼마나 잘게 나눌지, 어떤 스레드를 깨울지, 결과를 어디로 받을지 같은 선택이 실제 JobSystem의 동작을 결정합니다.
+
+---
+
+## Week 2 — JobHandle과 작업 그래프
+
+| Day | 주제 | 핵심 |
+|-----|------|------|
+| Day 08 | `JobHandle` | 전체 풀이 아니라 특정 작업 하나의 완료를 추적한다. |
+| Day 09 | `Submit` → `JobHandle` | 기존 Submit 패턴과 선택적 대기를 하나의 API로 합쳤다. |
+| Day 10 | Worker Wait Starvation | 워커 안에서 다른 작업을 `Wait()`하면 워커 슬롯을 점유해 starvation이 생길 수 있다. |
+| Day 11 | Dependency Counter / Continuation | `Wait()` 대신 선행 작업 완료 시 후속 작업을 큐에 자동 제출한다. |
+| Day 12 | Exception Propagation | 작업 예외를 `JobState`에 저장하고 `Wait()`에서 재전파한다. |
+| Day 13 | Failure Policy | 완료 기반 continuation과 성공 기반 continuation을 분리했다. |
+| Day 14 | Week 2 Recap | 작업 그래프 관점에서 API와 정책을 정리한다. |
 
 ### Day 08 — JobHandle
 
-`JobHandle`은 특정 작업 하나의 완료 상태를 추적한다.
-
-`WaitAll()`은 풀에 제출된 모든 작업을 기다리지만, `JobHandle::Wait()`은 연결된 작업 하나만 기다린다.  
-핸들은 복사 가능해야 하므로 완료 상태는 `shared_ptr<JobState>`로 공유한다.
+`JobHandle`은 특정 작업 하나의 완료 상태를 추적합니다.
+`WaitAll()`은 풀에 제출된 모든 작업을 기다리지만, `JobHandle::Wait()`은 연결된 작업 하나만 기다립니다.
+핸들은 복사 가능해야 하므로 완료 상태는 `shared_ptr<JobState>`로 공유합니다.
 
 ### Day 09 — Submit → JobHandle 반환
 
-`Submit()`이 `JobHandle`을 반환하도록 바꿔 기존 Submit 패턴과 선택적 대기를 하나의 API로 합쳤다.
-
-핸들을 이용하면 A 완료 후 B 제출 같은 단순 의존성은 표현할 수 있다.  
-하지만 메인 스레드가 `hA.Wait()`로 막히는 구조라, 자동 의존성 실행으로 가기 전 한계가 있다.
+`Submit()`이 `JobHandle`을 반환하도록 바꿔 기존 Submit 패턴과 선택적 대기를 하나의 API로 합쳤습니다.
+핸들을 이용하면 A 완료 후 B 제출 같은 단순 의존성은 표현할 수 있습니다.
+하지만 메인 스레드가 `hA.Wait()`로 막히는 구조라, 자동 의존성 실행으로 가기 전 한계가 있습니다.
 
 ### Day 10 — Worker Wait Starvation
 
-워커 스레드 안에서 다른 작업의 `JobHandle::Wait()`를 호출하면 워커 슬롯을 점유한다.
-
-모든 워커가 대기 상태가 되면 큐에 자식 작업이 남아 있어도 실행할 워커가 없어져 starvation/deadlock이 발생할 수 있다.  
-따라서 엔진식 JobSystem은 워커를 막는 Wait 대신 dependency counter, continuation, work stealing/helping wait 같은 구조가 필요하다.
+워커 스레드 안에서 다른 작업의 `JobHandle::Wait()`를 호출하면 워커 슬롯을 점유합니다.
+모든 워커가 대기 상태가 되면 큐에 자식 작업이 남아 있어도 실행할 워커가 없어져 starvation/deadlock이 발생할 수 있습니다.
+따라서 엔진식 JobSystem은 워커를 막는 Wait 대신 dependency counter, continuation, work stealing/helping wait 같은 구조가 필요합니다.
 
 ### Day 11 — Dependency Counter / Continuation
 
-`SubmitAfter(dependencies, job)`을 추가해 모든 선행 작업이 완료된 뒤 후속 작업이 자동 제출되도록 만들었다.
-
-각 선행 작업 완료 시 continuation이 atomic counter를 감소시키고, 마지막 선행 작업이 끝나는 순간 후속 작업을 큐에 넣는다.
-이 방식은 워커 스레드가 `Wait()`로 막히지 않으므로 Day 10의 starvation 위험을 줄이고, 작업 그래프를 큐 기반으로 흘려보내는 엔진식 구조에 가까워진다.
+`SubmitAfter(dependencies, job)`을 추가해 모든 선행 작업이 완료된 뒤 후속 작업이 자동 제출되도록 만들었습니다.
+각 선행 작업 완료 시 continuation이 atomic counter를 감소시키고, 마지막 선행 작업이 끝나는 순간 후속 작업을 큐에 넣습니다.
+이 방식은 워커 스레드가 `Wait()`로 막히지 않으므로 작업 그래프를 큐 기반으로 흘려보내는 구조에 가까워집니다.
 
 ### Day 12 — Exception Propagation / Worker Survival
 
-`Submit()` 작업 내부에서 예외가 발생해도 워커 스레드가 종료되지 않도록 작업 래퍼에서 예외를 잡고 `JobState`에 저장한다.
-
-`JobHandle::Wait()`는 완료를 기다린 뒤 저장된 `std::exception_ptr`을 다시 던진다.
-따라서 호출자는 실패를 명시적으로 처리할 수 있고, 워커는 다음 작업을 계속 처리한다.
-
-의존성 카운터는 성공 여부가 아니라 완료 여부를 추적한다.
-선행 작업이 실패해도 후속 작업은 실행되므로, 실패 시 취소/전파/fallback 같은 정책은 별도로 설계해야 한다.
+`Submit()` 작업 내부에서 예외가 발생해도 워커 스레드가 종료되지 않도록 작업 래퍼에서 예외를 잡고 `JobState`에 저장합니다.
+`JobHandle::Wait()`는 완료를 기다린 뒤 저장된 `std::exception_ptr`을 다시 던집니다.
+따라서 호출자는 실패를 명시적으로 처리할 수 있고, 워커는 다음 작업을 계속 처리합니다.
 
 ### Day 13 — Failure Policy: Completion vs Success
 
-`SubmitAfterAllSucceeded(dependencies, job)`을 추가해 모든 선행 작업이 성공했을 때만 후속 작업을 실행하는 정책을 만들었다.
+`SubmitAfterAllSucceeded(dependencies, job)`을 추가해 모든 선행 작업이 성공했을 때만 후속 작업을 실행하는 정책을 만들었습니다.
+기존 `SubmitAfter()`는 완료 기반 continuation이라 선행 작업이 실패해도 후속 작업을 실행합니다.
+반면 `SubmitAfterAllSucceeded()`는 선행 작업 중 하나라도 예외를 저장했으면 후속 작업을 실행하지 않고 `JobCanceledException`으로 완료시킵니다.
 
-기존 `SubmitAfter()`는 완료 기반 continuation이라 선행 작업이 실패해도 후속 작업을 실행한다.
-반면 `SubmitAfterAllSucceeded()`는 선행 작업 중 하나라도 예외를 저장했으면 후속 작업을 실행하지 않고 `JobCanceledException`으로 완료시킨다.
+### Day 14 — Week 2 Recap
 
-핵심은 dependency counter는 완료 순서를 관리하고, 실패 시 계속 실행/취소/fallback 같은 정책은 그 위에 별도 계층으로 얹을 수 있다는 점이다.
+Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보내는 방향입니다.
+
+| 개념 | 역할 |
+|------|------|
+| `JobHandle` | 작업 완료 상태를 외부에서 추적하는 핸들 |
+| `JobState` | 완료 여부, 예외, continuation을 공유하는 내부 상태 |
+| `Wait()` | 호출 스레드를 블록하는 동기화 지점 |
+| continuation | 선행 작업 완료 시 실행할 후속 제출 로직 |
+| dependency counter | 남은 선행 작업 수를 추적하는 atomic 카운터 |
+| failure policy | 선행 작업 실패 후 후속 작업을 실행할지 취소할지 결정하는 정책 |
+
+중요한 구분:
+
+| 질문 | 답 |
+|------|----|
+| 작업이 끝났는가? | completion |
+| 작업이 성공했는가? | exception/failure state |
+| 후속 작업을 실행할 것인가? | scheduling policy |
+| 호출 스레드를 막을 것인가? | wait policy |
+
+이 네 가지를 섞으면 구현은 단순해 보이지만, 워커 starvation이나 예외 누락 같은 문제가 생깁니다.
+따라서 `JobHandle`, `JobState`, dependency counter, failure policy를 분리해서 생각하는 것이 Week 2의 핵심입니다.
+
+---
+
+## 다음 방향
+
+Week 3에서 다루기 좋은 후보:
+
+| 후보 | 이유 |
+|------|------|
+| Helping Wait | 메인/워커가 기다리는 동안 큐의 다른 작업을 도와 starvation을 줄인다. |
+| Work Stealing | 전역 큐 병목을 줄이고 워커별 local queue를 실험한다. |
+| Job Graph Builder | 여러 job과 dependency를 한 번에 선언하는 API를 만든다. |
+| JobState Pool | `shared_ptr<JobState>` 할당 비용을 줄이는 재사용 구조를 실험한다. |
+
+개인적으로는 Day 15에서 **Helping Wait**를 먼저 보는 것이 좋습니다.
+Day 10에서 확인한 worker wait starvation 문제와 직접 연결되고, 이후 work stealing으로 확장하기 쉽습니다.
