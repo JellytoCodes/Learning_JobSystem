@@ -25,6 +25,7 @@ UE5 TaskGraph, Unity Job System 같은 엔진 내부 시스템이 어떻게 동�
 | 성공 기반 후속 작업 | `SubmitAfterAllSucceeded(dependencies, job)` |
 | 작업 예외 전파 | `std::exception_ptr` 저장 후 `JobHandle::Wait()`에서 재전파 |
 | 실패 정책 | 완료 기반 실행 vs 성공 기반 취소 |
+| Work Stealing 실험 | worker local queue + steal 구조 |
 
 ---
 
@@ -146,6 +147,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day | 주제 | 핵심 |
 |-----|------|------|
 | Day 15 | Helping Wait | 기다리는 동안 큐의 다른 작업을 직접 실행해 starvation 위험을 줄인다. |
+| Day 16 | Work Stealing | 워커별 local queue를 두고, 빈 워커가 다른 워커의 작업을 훔쳐 부하 불균형을 줄인다. |
 
 ### Day 15 — Helping Wait
 
@@ -158,6 +160,31 @@ Helping Wait은 기다리는 워커도 진행에 기여하게 만들어 이 star
 다만 현재 구현은 전역 큐에서만 작업을 꺼냅니다.
 실제 엔진에 가까워지려면 worker local queue, work stealing, 재진입 깊이 제한 같은 정책이 추가로 필요합니다.
 
+### Day 16 — Work Stealing
+
+`experiments/Day16_WorkStealing.cpp`에서 독립적인 `WorkStealingPool`을 구현했습니다.
+이번 실험은 기존 `ThreadPool` API를 바로 바꾸기보다, 큐 구조 자체를 분리해서 관찰하는 데 초점을 둡니다.
+
+핵심 구조:
+
+| 구성 | 역할 |
+|------|------|
+| worker local queue | 각 워커가 자기 작업을 우선 처리한다. |
+| owner pop back | 소유 워커는 뒤쪽에서 꺼내 최근에 들어온 작업을 빠르게 처리한다. |
+| thief steal front | 빈 워커는 다른 워커 큐의 앞쪽에서 오래된 작업을 훔친다. |
+| pending job counter | 모든 local queue에 흩어진 작업의 전체 완료를 추적한다. |
+
+실험은 세 가지를 확인합니다.
+
+| 실험 | 확인 내용 |
+|------|----------|
+| 균등 분배 | 각 워커에 작업이 고르게 있으면 steal 필요가 작다. |
+| 한 워커 과부하 | worker 0에 몰린 작업을 다른 워커들이 훔쳐 처리한다. |
+| LIFO/FIFO 방향 | 소유자는 뒤에서 pop하고, 훔치는 쪽은 앞에서 가져간다. |
+
+전역 큐 하나만 두면 모든 워커가 같은 mutex를 경쟁합니다.
+Work Stealing은 평소에는 자기 local queue만 건드리고, 놀고 있는 워커만 다른 큐를 확인하므로 전역 큐 병목과 부하 불균형을 동시에 줄이는 방향입니다.
+
 ---
 
 ## 다음 방향
@@ -166,9 +193,9 @@ Week 3에서 다루기 좋은 후보:
 
 | 후보 | 이유 |
 |------|------|
-| Work Stealing | 전역 큐 병목을 줄이고 워커별 local queue를 실험한다. |
 | Job Graph Builder | 여러 job과 dependency를 한 번에 선언하는 API를 만든다. |
 | JobState Pool | `shared_ptr<JobState>` 할당 비용을 줄이는 재사용 구조를 실험한다. |
+| ThreadPool local queue 통합 | Day16 실험 구조를 기존 `ThreadPool`에 점진적으로 반영한다. |
 
-Day 16 후보로는 **Work Stealing**이 가장 자연스럽습니다.
-Helping Wait이 전역 큐 기반으로 진행을 돕는 방식이라면, Work Stealing은 워커별 local queue를 두고 부하를 훔쳐오는 구조로 확장합니다.
+Day 17 후보로는 **Job Graph Builder**가 자연스럽습니다.
+Day11~13에서 dependency와 failure policy를 만들었고, Day15~16에서 wait/queue 정책을 확장했으므로, 이제 여러 작업과 의존성을 한 번에 선언하는 사용성 계층을 얹기 좋습니다.

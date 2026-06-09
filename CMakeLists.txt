@@ -138,3 +138,10 @@ add_executable(Day15_HelpingWait
 target_include_directories(Day15_HelpingWait PRIVATE src)
 target_link_libraries(Day15_HelpingWait PRIVATE Threads::Threads)
 target_compile_options(Day15_HelpingWait PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 16 실험]
+add_executable(Day16_WorkStealing
+    experiments/Day16_WorkStealing.cpp
+)
+target_link_libraries(Day16_WorkStealing PRIVATE Threads::Threads)
+target_compile_options(Day16_WorkStealing PRIVATE ${COMMON_COMPILE_OPTIONS})
