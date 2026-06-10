@@ -145,3 +145,13 @@ add_executable(Day16_WorkStealing
 )
 target_link_libraries(Day16_WorkStealing PRIVATE Threads::Threads)
 target_compile_options(Day16_WorkStealing PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 17 실험]
+add_executable(Day17_JobGraphBuilder
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day17_JobGraphBuilder.cpp
+)
+target_include_directories(Day17_JobGraphBuilder PRIVATE src)
+target_link_libraries(Day17_JobGraphBuilder PRIVATE Threads::Threads)
+target_compile_options(Day17_JobGraphBuilder PRIVATE ${COMMON_COMPILE_OPTIONS})

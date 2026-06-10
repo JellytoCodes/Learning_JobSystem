@@ -148,6 +148,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 |-----|------|------|
 | Day 15 | Helping Wait | 기다리는 동안 큐의 다른 작업을 직접 실행해 starvation 위험을 줄인다. |
 | Day 16 | Work Stealing | 워커별 local queue를 두고, 빈 워커가 다른 워커의 작업을 훔쳐 부하 불균형을 줄인다. |
+| Day 17 | Job Graph Builder | 여러 작업과 의존성을 선언 단계와 실행 단계로 분리한다. |
 
 ### Day 15 — Helping Wait
 
@@ -185,6 +186,33 @@ Helping Wait은 기다리는 워커도 진행에 기여하게 만들어 이 star
 전역 큐 하나만 두면 모든 워커가 같은 mutex를 경쟁합니다.
 Work Stealing은 평소에는 자기 local queue만 건드리고, 놀고 있는 워커만 다른 큐를 확인하므로 전역 큐 병목과 부하 불균형을 동시에 줄이는 방향입니다.
 
+### Day 17 — Job Graph Builder
+
+`experiments/Day17_JobGraphBuilder.cpp`에서 `JobGraphBuilder`를 실험했습니다.
+기존 `ThreadPool` 코어를 직접 바꾸지 않고, `SubmitAfter()`와 `SubmitAfterAllSucceeded()` 위에 사용성 계층을 얹는 방식입니다.
+
+핵심 구조:
+
+| 구성 | 역할 |
+|------|------|
+| `JobId` | 그래프 내부에서 노드를 가리키는 식별자 |
+| `AddJob()` | 작업 이름, 의존성 목록, 실행 함수, 실패 정책을 선언 |
+| `Run(pool)` | 선언된 노드를 순서대로 `ThreadPool`에 제출하고 `JobHandle` 목록 반환 |
+| `DependencyPolicy::Completion` | 선행 작업 성공/실패와 무관하게 완료 후 실행 |
+| `DependencyPolicy::AllSucceeded` | 선행 작업이 모두 성공했을 때만 실행 |
+
+실험은 세 가지를 확인합니다.
+
+| 실험 | 확인 내용 |
+|------|----------|
+| 선형 파이프라인 | A → B → C 순서를 그래프 선언으로 표현 |
+| Fan-out / Fan-in | 여러 독립 작업이 모두 끝난 뒤 합산 작업 실행 |
+| 노드별 실패 정책 | 같은 실패 선행 작업 뒤에서도 cleanup은 실행, product는 취소 |
+
+Day 17의 의미는 성능 최적화보다 API 사용성입니다.
+작업 그래프가 커질수록 `SubmitAfter()` 호출이 코드 곳곳에 흩어지면 구조를 검토하기 어렵습니다.
+Builder 계층은 그래프를 먼저 선언하고, 실행은 한 번에 넘기게 만들어 의존성 구조를 읽기 쉽게 합니다.
+
 ---
 
 ## 다음 방향
@@ -193,9 +221,10 @@ Week 3에서 다루기 좋은 후보:
 
 | 후보 | 이유 |
 |------|------|
-| Job Graph Builder | 여러 job과 dependency를 한 번에 선언하는 API를 만든다. |
 | JobState Pool | `shared_ptr<JobState>` 할당 비용을 줄이는 재사용 구조를 실험한다. |
 | ThreadPool local queue 통합 | Day16 실험 구조를 기존 `ThreadPool`에 점진적으로 반영한다. |
+| Graph validation | cycle detection, 중복 의존성, 선언 순서 제한을 검증한다. |
 
-Day 17 후보로는 **Job Graph Builder**가 자연스럽습니다.
-Day11~13에서 dependency와 failure policy를 만들었고, Day15~16에서 wait/queue 정책을 확장했으므로, 이제 여러 작업과 의존성을 한 번에 선언하는 사용성 계층을 얹기 좋습니다.
+Day 18 후보로는 **Graph validation**이 자연스럽습니다.
+Day17의 builder는 의존성이 먼저 선언된 노드만 참조한다는 단순한 제약을 둡니다.
+다음 단계에서는 cycle detection과 invalid dependency diagnostics를 추가해 그래프 선언 오류를 실행 전에 잡을 수 있습니다.
