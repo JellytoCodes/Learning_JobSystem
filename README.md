@@ -149,6 +149,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 15 | Helping Wait | 기다리는 동안 큐의 다른 작업을 직접 실행해 starvation 위험을 줄인다. |
 | Day 16 | Work Stealing | 워커별 local queue를 두고, 빈 워커가 다른 워커의 작업을 훔쳐 부하 불균형을 줄인다. |
 | Day 17 | Job Graph Builder | 여러 작업과 의존성을 선언 단계와 실행 단계로 분리한다. |
+| Day 18 | Graph Validation | invalid edge와 cycle을 실행 전에 검증하고 topological order를 만든다. |
 
 ### Day 15 — Helping Wait
 
@@ -213,6 +214,26 @@ Day 17의 의미는 성능 최적화보다 API 사용성입니다.
 작업 그래프가 커질수록 `SubmitAfter()` 호출이 코드 곳곳에 흩어지면 구조를 검토하기 어렵습니다.
 Builder 계층은 그래프를 먼저 선언하고, 실행은 한 번에 넘기게 만들어 의존성 구조를 읽기 쉽게 합니다.
 
+### Day 18 — Graph Validation / Topological Sort
+
+`experiments/Day18_GraphValidation.cpp`에서 그래프 실행 전 검증 계층을 추가했습니다.
+Day17은 dependency 노드가 먼저 선언되어야 했지만, Day18은 모든 노드를 만든 뒤 `AddDependency(job, dependency)`로 연결할 수 있습니다.
+
+`Validate()`가 확인하는 오류:
+
+| 오류 | 의미 |
+|------|------|
+| invalid `JobId` | 존재하지 않는 노드에 연결된 edge |
+| self dependency | 노드가 자기 자신을 선행 작업으로 참조 |
+| duplicate dependency | 같은 edge가 두 번 선언됨 |
+| cycle | A → B → C → A처럼 시작점이 없는 순환 의존성 |
+
+cycle 검사는 DFS 3-color 방식으로 구현했습니다.
+`Unvisited`, `Visiting`, `Visited` 상태를 두고 현재 탐색 경로의 `Visiting` 노드를 다시 만나면 cycle path를 진단합니다.
+
+유효한 그래프는 DFS 후위 순서로 dependency가 먼저 오는 topological order를 생성합니다.
+`Run()`은 검증 실패 시 `GraphValidationException`을 던지고 아무 작업도 제출하지 않으며, 성공한 경우에만 해당 순서로 기존 `ThreadPool` API를 호출합니다.
+
 ---
 
 ## 다음 방향
@@ -223,8 +244,7 @@ Week 3에서 다루기 좋은 후보:
 |------|------|
 | JobState Pool | `shared_ptr<JobState>` 할당 비용을 줄이는 재사용 구조를 실험한다. |
 | ThreadPool local queue 통합 | Day16 실험 구조를 기존 `ThreadPool`에 점진적으로 반영한다. |
-| Graph validation | cycle detection, 중복 의존성, 선언 순서 제한을 검증한다. |
+| Graph execution report | 노드별 상태와 실행 시간을 수집해 그래프 병목을 관찰한다. |
 
-Day 18 후보로는 **Graph validation**이 자연스럽습니다.
-Day17의 builder는 의존성이 먼저 선언된 노드만 참조한다는 단순한 제약을 둡니다.
-다음 단계에서는 cycle detection과 invalid dependency diagnostics를 추가해 그래프 선언 오류를 실행 전에 잡을 수 있습니다.
+Day 19 후보로는 **Graph execution report**가 자연스럽습니다.
+그래프 구조 검증 다음에는 각 노드의 대기 시간과 실행 시간을 기록해 critical path와 병목을 관찰할 수 있습니다.

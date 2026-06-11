@@ -155,3 +155,13 @@ add_executable(Day17_JobGraphBuilder
 target_include_directories(Day17_JobGraphBuilder PRIVATE src)
 target_link_libraries(Day17_JobGraphBuilder PRIVATE Threads::Threads)
 target_compile_options(Day17_JobGraphBuilder PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 18 실험]
+add_executable(Day18_GraphValidation
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day18_GraphValidation.cpp
+)
+target_include_directories(Day18_GraphValidation PRIVATE src)
+target_link_libraries(Day18_GraphValidation PRIVATE Threads::Threads)
+target_compile_options(Day18_GraphValidation PRIVATE ${COMMON_COMPILE_OPTIONS})
