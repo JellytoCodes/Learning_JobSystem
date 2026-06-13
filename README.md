@@ -150,6 +150,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 16 | Work Stealing | 워커별 local queue를 두고, 빈 워커가 다른 워커의 작업을 훔쳐 부하 불균형을 줄인다. |
 | Day 17 | Job Graph Builder | 여러 작업과 의존성을 선언 단계와 실행 단계로 분리한다. |
 | Day 18 | Graph Validation | invalid edge와 cycle을 실행 전에 검증하고 topological order를 만든다. |
+| Day 19 | Graph Execution Report | 노드별 queue wait와 실행 시간을 측정하고 critical path를 찾는다. |
 
 ### Day 15 — Helping Wait
 
@@ -234,6 +235,25 @@ cycle 검사는 DFS 3-color 방식으로 구현했습니다.
 유효한 그래프는 DFS 후위 순서로 dependency가 먼저 오는 topological order를 생성합니다.
 `Run()`은 검증 실패 시 `GraphValidationException`을 던지고 아무 작업도 제출하지 않으며, 성공한 경우에만 해당 순서로 기존 `ThreadPool` API를 호출합니다.
 
+### Day 19 — Graph Execution Report
+
+`experiments/Day19_GraphExecutionReport.cpp`에서 각 그래프 노드의 실행 구간을 계측합니다.
+작업 함수를 래핑해 `ready`, `start`, `end`, 상태, 실행 스레드를 기록하고 실행이 끝난 뒤 표 형태의 보고서를 만듭니다.
+
+| 지표 | 의미 |
+|------|------|
+| queue wait | dependency가 끝나 실행 가능해진 시점부터 실제 시작까지의 시간 |
+| execution time | 작업 함수가 실제로 실행된 시간 |
+| graph elapsed | 그래프 실행 시작부터 모든 노드 완료까지의 wall-clock 시간 |
+| critical path | dependency를 따라 누적 실행 시간이 가장 긴 경로 |
+
+첫 번째 실험은 worker 2개에 독립 작업 6개를 제출해, 뒤쪽 작업의 queue wait가 증가하는 현상을 보여줍니다.
+두 번째 실험은 fan-out/fan-in 그래프에서 `Load -> Parse -> Shaders -> Package -> Upload`가 critical path로 계산되는지 확인합니다.
+세 번째 실험은 실패 노드를 보고서에 남기고, 완료 기반 후속 작업은 실행되지만 성공 기반 후속 작업은 `canceled`로 기록되는지 확인합니다.
+
+실행 시간이 가장 긴 단일 노드와 critical path는 같은 개념이 아닙니다.
+그래프 전체 완료 시간을 줄이려면 dependency를 따라 누적되는 경로를 먼저 찾아야 하며, queue wait가 크다면 작업 자체보다 worker 수나 스케줄링 정책을 점검해야 합니다.
+
 ---
 
 ## 다음 방향
@@ -244,7 +264,7 @@ Week 3에서 다루기 좋은 후보:
 |------|------|
 | JobState Pool | `shared_ptr<JobState>` 할당 비용을 줄이는 재사용 구조를 실험한다. |
 | ThreadPool local queue 통합 | Day16 실험 구조를 기존 `ThreadPool`에 점진적으로 반영한다. |
-| Graph execution report | 노드별 상태와 실행 시간을 수집해 그래프 병목을 관찰한다. |
+| Trace export | execution report를 Chrome Trace JSON 같은 외부 시각화 형식으로 내보낸다. |
 
-Day 19 후보로는 **Graph execution report**가 자연스럽습니다.
-그래프 구조 검증 다음에는 각 노드의 대기 시간과 실행 시간을 기록해 critical path와 병목을 관찰할 수 있습니다.
+Day 20 후보로는 **Trace export**가 자연스럽습니다.
+Day19의 시간 데이터를 파일로 내보내면 텍스트 표를 넘어 타임라인에서 병렬 실행과 대기 구간을 직접 확인할 수 있습니다.

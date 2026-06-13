@@ -165,3 +165,13 @@ add_executable(Day18_GraphValidation
 target_include_directories(Day18_GraphValidation PRIVATE src)
 target_link_libraries(Day18_GraphValidation PRIVATE Threads::Threads)
 target_compile_options(Day18_GraphValidation PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 19 실험]
+add_executable(Day19_GraphExecutionReport
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day19_GraphExecutionReport.cpp
+)
+target_include_directories(Day19_GraphExecutionReport PRIVATE src)
+target_link_libraries(Day19_GraphExecutionReport PRIVATE Threads::Threads)
+target_compile_options(Day19_GraphExecutionReport PRIVATE ${COMMON_COMPILE_OPTIONS})
