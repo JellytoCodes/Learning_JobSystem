@@ -175,3 +175,13 @@ add_executable(Day19_GraphExecutionReport
 target_include_directories(Day19_GraphExecutionReport PRIVATE src)
 target_link_libraries(Day19_GraphExecutionReport PRIVATE Threads::Threads)
 target_compile_options(Day19_GraphExecutionReport PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 20 실험]
+add_executable(Day20_ChromeTraceExport
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day20_ChromeTraceExport.cpp
+)
+target_include_directories(Day20_ChromeTraceExport PRIVATE src)
+target_link_libraries(Day20_ChromeTraceExport PRIVATE Threads::Threads)
+target_compile_options(Day20_ChromeTraceExport PRIVATE ${COMMON_COMPILE_OPTIONS})

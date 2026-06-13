@@ -151,6 +151,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 17 | Job Graph Builder | 여러 작업과 의존성을 선언 단계와 실행 단계로 분리한다. |
 | Day 18 | Graph Validation | invalid edge와 cycle을 실행 전에 검증하고 topological order를 만든다. |
 | Day 19 | Graph Execution Report | 노드별 queue wait와 실행 시간을 측정하고 critical path를 찾는다. |
+| Day 20 | Chrome Trace Export | 실행, 대기, dependency 흐름을 Trace Event JSON으로 내보낸다. |
 
 ### Day 15 — Helping Wait
 
@@ -254,6 +255,27 @@ cycle 검사는 DFS 3-color 방식으로 구현했습니다.
 실행 시간이 가장 긴 단일 노드와 critical path는 같은 개념이 아닙니다.
 그래프 전체 완료 시간을 줄이려면 dependency를 따라 누적되는 경로를 먼저 찾아야 하며, queue wait가 크다면 작업 자체보다 worker 수나 스케줄링 정책을 점검해야 합니다.
 
+### Day 20 — Chrome Trace JSON Export
+
+`experiments/Day20_ChromeTraceExport.cpp`는 그래프 실행 기록을 Chrome Trace Event JSON 형식으로 저장합니다.
+생성된 파일은 Perfetto UI 또는 `chrome://tracing`에서 열 수 있습니다.
+
+| Trace event | 표현 내용 |
+|-------------|-----------|
+| complete event (`X`) | worker thread에서 실제 작업이 실행된 구간 |
+| queue wait (`X`) | dependency 완료 후 worker를 얻기까지 기다린 구간 |
+| flow (`s` / `f`) | 선행 작업 종료에서 후속 작업 시작으로 이어지는 dependency |
+| metadata (`M`) | process와 worker/queue lane 이름 |
+
+실행 예시:
+
+```powershell
+out\build\x64-debug\Day20_ChromeTraceExport.exe Day20_JobTrace.json
+```
+
+텍스트 표는 정확한 수치를 비교하기 좋지만, 병렬 실행의 겹침과 빈 구간을 한눈에 읽기는 어렵습니다.
+Trace viewer에서는 worker lane의 활용률, queue wait, fan-out/fan-in 흐름을 시간축 위에서 함께 확인할 수 있습니다.
+
 ---
 
 ## 다음 방향
@@ -264,7 +286,7 @@ Week 3에서 다루기 좋은 후보:
 |------|------|
 | JobState Pool | `shared_ptr<JobState>` 할당 비용을 줄이는 재사용 구조를 실험한다. |
 | ThreadPool local queue 통합 | Day16 실험 구조를 기존 `ThreadPool`에 점진적으로 반영한다. |
-| Trace export | execution report를 Chrome Trace JSON 같은 외부 시각화 형식으로 내보낸다. |
+| Trace ring buffer | 장시간 실행에서도 메모리를 제한하도록 고정 크기 event buffer를 실험한다. |
 
-Day 20 후보로는 **Trace export**가 자연스럽습니다.
-Day19의 시간 데이터를 파일로 내보내면 텍스트 표를 넘어 타임라인에서 병렬 실행과 대기 구간을 직접 확인할 수 있습니다.
+Day 21 후보로는 **JobState Pool**이 자연스럽습니다.
+그래프 기능과 관찰 도구를 마련했으므로, 이제 작업마다 발생하는 `shared_ptr<JobState>` 할당 비용과 재사용 구조를 측정할 수 있습니다.
