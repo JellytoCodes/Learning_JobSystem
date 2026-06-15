@@ -2,6 +2,7 @@
 
 #include <thread>
 #include <queue>
+#include <deque>
 #include <mutex>
 #include <condition_variable>
 #include <functional>
@@ -334,6 +335,15 @@ public:
         uint64_t jobsProcessed;
     };
 
+    struct QueueStats
+    {
+        uint32_t threadIdx;
+        uint64_t jobsProcessed;
+        uint64_t localPops;
+        uint64_t globalPops;
+        uint64_t steals;
+    };
+
     std::vector<ThreadStats> GetPerThreadStats() const
     {
         const uint32_t n = GetThreadCount();
@@ -344,18 +354,52 @@ public:
         return stats;
     }
 
+    std::vector<QueueStats> GetQueueStats() const
+    {
+        const uint32_t n = GetThreadCount();
+        std::vector<QueueStats> stats;
+        stats.reserve(n);
+        for (uint32_t i = 0; i < n; ++i)
+        {
+            stats.push_back({
+                i,
+                _perThreadJobCount[i].load(),
+                _localPopCount[i].load(),
+                _globalPopCount[i].load(),
+                _stealCount[i].load()
+            });
+        }
+        return stats;
+    }
+
     void ResetStats()
     {
         for (uint32_t i = 0; i < GetThreadCount(); ++i)
+        {
             _perThreadJobCount[i].store(0);
+            _localPopCount[i].store(0);
+            _globalPopCount[i].store(0);
+            _stealCount[i].store(0);
+        }
     }
 
 private:
+    struct LocalQueue
+    {
+        mutable std::mutex mutex;
+        std::deque<std::function<void()>> jobs;
+    };
+
     void EnqueueWithState(std::function<void()> job, std::shared_ptr<JobState> state);
     static void CompleteJobState(
         const std::shared_ptr<JobState>& state,
         std::exception_ptr exception = nullptr);
     bool TryExecuteOneJob(uint32_t* workerThreadIdx);
+    bool TryPopLocal(uint32_t workerThreadIdx, std::function<void()>& job);
+    bool TryPopGlobal(uint32_t* workerThreadIdx, std::function<void()>& job);
+    bool TrySteal(uint32_t workerThreadIdx, std::function<void()>& job);
+    bool TryStealAny(std::function<void()>& job);
+    bool HasAnyLocalJob() const;
     void ExecuteJob(std::function<void()> job, uint32_t* workerThreadIdx);
 
     // -------------------------------------------------------------------------
@@ -368,6 +412,10 @@ private:
     // 워커 스레드 목록
     // emplace_back으로 한 번만 채우고 이후 수정하지 않으므로 별도 락 불필요.
     std::vector<std::thread> _workers;
+
+    // 워커별 local queue.
+    // 워커 내부 Submit은 자기 local queue에 push하고, 다른 워커는 앞쪽에서 steal한다.
+    std::vector<std::unique_ptr<LocalQueue>> _localQueues;
 
     // Job 큐
     // 여러 스레드가 동시에 접근하므로 반드시 _queueMutex로 보호해야 한다.
@@ -426,4 +474,10 @@ private:
     //     make_unique<atomic<uint64_t>[]>(n)은 모든 원소를 0으로 value-init한다.
     // -------------------------------------------------------------------------
     std::unique_ptr<std::atomic<uint64_t>[]> _perThreadJobCount;
+    std::unique_ptr<std::atomic<uint64_t>[]> _localPopCount;
+    std::unique_ptr<std::atomic<uint64_t>[]> _globalPopCount;
+    std::unique_ptr<std::atomic<uint64_t>[]> _stealCount;
+
+    static thread_local ThreadPool* _currentPool;
+    static thread_local uint32_t _currentWorkerIdx;
 };

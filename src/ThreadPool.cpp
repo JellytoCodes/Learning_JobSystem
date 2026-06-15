@@ -11,6 +11,13 @@ ThreadPool::ThreadPool(uint32_t threadCount)
     // make_unique<T[]>(n): n개의 atomic을 0으로 value-init해 힙에 할당.
     // vector::resize()와 달리 이동을 시도하지 않으므로 atomic과 안전하게 동작.
     _perThreadJobCount = std::make_unique<std::atomic<uint64_t>[]>(threadCount);
+    _localPopCount = std::make_unique<std::atomic<uint64_t>[]>(threadCount);
+    _globalPopCount = std::make_unique<std::atomic<uint64_t>[]>(threadCount);
+    _stealCount = std::make_unique<std::atomic<uint64_t>[]>(threadCount);
+
+    _localQueues.reserve(threadCount);
+    for (uint32_t i = 0; i < threadCount; ++i)
+        _localQueues.push_back(std::make_unique<LocalQueue>());
 
     _workers.reserve(threadCount);
     for (uint32_t i = 0; i < threadCount; ++i)
@@ -49,6 +56,9 @@ ThreadPool::~ThreadPool()
         worker.join();
 }
 
+thread_local ThreadPool* ThreadPool::_currentPool = nullptr;
+thread_local uint32_t ThreadPool::_currentWorkerIdx = 0;
+
 // =============================================================================
 // CompleteJobState — 작업 완료 상태 전파 + continuation 실행
 // =============================================================================
@@ -77,29 +87,39 @@ void ThreadPool::CompleteJobState(
 // =============================================================================
 void ThreadPool::EnqueueWithState(std::function<void()> job, std::shared_ptr<JobState> state)
 {
+    auto wrappedJob = [job = std::move(job), state = std::move(state)]() mutable
+    {
+        try
+        {
+            job();
+            CompleteJobState(state);
+        }
+        catch (...)
+        {
+            CompleteJobState(state, std::current_exception());
+        }
+    };
+
     {
         std::unique_lock<std::mutex> lock(_queueMutex);
 
         if (_stop)
             throw std::runtime_error("ThreadPool: 종료된 풀에 작업을 제출할 수 없습니다.");
 
-        _jobQueue.push([job = std::move(job), state = std::move(state)]() mutable
-        {
-            try
-            {
-                job();
-                CompleteJobState(state);
-            }
-            catch (...)
-            {
-                CompleteJobState(state, std::current_exception());
-            }
-        });
-
         ++_pendingJobs;
+
+        if (_currentPool == this)
+        {
+            std::lock_guard<std::mutex> localLock(_localQueues[_currentWorkerIdx]->mutex);
+            _localQueues[_currentWorkerIdx]->jobs.push_back(std::move(wrappedJob));
+        }
+        else
+        {
+            _jobQueue.push(std::move(wrappedJob));
+        }
     }
 
-    _workerCv.notify_one();
+    _workerCv.notify_all();
 }
 
 // =============================================================================
@@ -244,6 +264,57 @@ bool ThreadPool::TryExecuteOneJob(uint32_t* workerThreadIdx)
 {
     std::function<void()> job;
 
+    if (workerThreadIdx && TryPopLocal(*workerThreadIdx, job))
+    {
+        ExecuteJob(std::move(job), workerThreadIdx);
+        return true;
+    }
+
+    if (TryPopGlobal(workerThreadIdx, job))
+    {
+        ExecuteJob(std::move(job), workerThreadIdx);
+        return true;
+    }
+
+    if (workerThreadIdx)
+    {
+        if (TrySteal(*workerThreadIdx, job))
+        {
+            ExecuteJob(std::move(job), workerThreadIdx);
+            return true;
+        }
+    }
+    else if (TryStealAny(job))
+    {
+        ExecuteJob(std::move(job), workerThreadIdx);
+        return true;
+    }
+
+    return false;
+}
+
+// =============================================================================
+// TryPopLocal — 자기 local queue에서 LIFO로 작업을 꺼낸다
+// =============================================================================
+bool ThreadPool::TryPopLocal(uint32_t workerThreadIdx, std::function<void()>& job)
+{
+    LocalQueue& localQueue = *_localQueues[workerThreadIdx];
+    std::unique_lock<std::mutex> lock(localQueue.mutex);
+
+    if (localQueue.jobs.empty())
+        return false;
+
+    job = std::move(localQueue.jobs.back());
+    localQueue.jobs.pop_back();
+    ++_localPopCount[workerThreadIdx];
+    return true;
+}
+
+// =============================================================================
+// TryPopGlobal — 외부 제출 작업이 들어오는 전역 큐에서 FIFO로 꺼낸다
+// =============================================================================
+bool ThreadPool::TryPopGlobal(uint32_t* workerThreadIdx, std::function<void()>& job)
+{
     {
         std::unique_lock<std::mutex> lock(_queueMutex);
         if (_jobQueue.empty())
@@ -253,8 +324,65 @@ bool ThreadPool::TryExecuteOneJob(uint32_t* workerThreadIdx)
         _jobQueue.pop();
     }
 
-    ExecuteJob(std::move(job), workerThreadIdx);
+    if (workerThreadIdx)
+        ++_globalPopCount[*workerThreadIdx];
+
     return true;
+}
+
+// =============================================================================
+// TrySteal — 다른 worker local queue 앞쪽에서 FIFO로 작업을 훔친다
+// =============================================================================
+bool ThreadPool::TrySteal(uint32_t workerThreadIdx, std::function<void()>& job)
+{
+    const uint32_t count = GetThreadCount();
+
+    for (uint32_t offset = 1; offset < count; ++offset)
+    {
+        const uint32_t victimIdx = (workerThreadIdx + offset) % count;
+        LocalQueue& victimQueue = *_localQueues[victimIdx];
+
+        std::unique_lock<std::mutex> lock(victimQueue.mutex);
+        if (victimQueue.jobs.empty())
+            continue;
+
+        job = std::move(victimQueue.jobs.front());
+        victimQueue.jobs.pop_front();
+        ++_stealCount[workerThreadIdx];
+        return true;
+    }
+
+    return false;
+}
+
+bool ThreadPool::TryStealAny(std::function<void()>& job)
+{
+    for (uint32_t victimIdx = 0; victimIdx < GetThreadCount(); ++victimIdx)
+    {
+        LocalQueue& victimQueue = *_localQueues[victimIdx];
+
+        std::unique_lock<std::mutex> lock(victimQueue.mutex);
+        if (victimQueue.jobs.empty())
+            continue;
+
+        job = std::move(victimQueue.jobs.front());
+        victimQueue.jobs.pop_front();
+        return true;
+    }
+
+    return false;
+}
+
+bool ThreadPool::HasAnyLocalJob() const
+{
+    for (const std::unique_ptr<LocalQueue>& localQueue : _localQueues)
+    {
+        std::unique_lock<std::mutex> lock(localQueue->mutex);
+        if (!localQueue->jobs.empty())
+            return true;
+    }
+
+    return false;
 }
 
 // =============================================================================
@@ -282,26 +410,23 @@ void ThreadPool::ExecuteJob(std::function<void()> job, uint32_t* workerThreadIdx
 // =============================================================================
 void ThreadPool::WorkerLoop(uint32_t threadIdx)
 {
+    _currentPool = this;
+    _currentWorkerIdx = threadIdx;
+
     while (true)
     {
-        std::function<void()> job;
-
         {
             std::unique_lock<std::mutex> lock(_queueMutex);
 
             _workerCv.wait(lock, [this]
             {
-                return !_jobQueue.empty() || _stop;
+                return !_jobQueue.empty() || HasAnyLocalJob() || _stop;
             });
 
-            if (_stop && _jobQueue.empty())
+            if (_stop && _jobQueue.empty() && !HasAnyLocalJob())
                 return;
-
-            job = std::move(_jobQueue.front());
-            _jobQueue.pop();
-
         }
 
-        ExecuteJob(std::move(job), &threadIdx);
+        (void)TryExecuteOneJob(&threadIdx);
     }
 }

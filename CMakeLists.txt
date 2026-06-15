@@ -192,3 +192,13 @@ add_executable(Day21_JobStatePool
 )
 target_link_libraries(Day21_JobStatePool PRIVATE Threads::Threads)
 target_compile_options(Day21_JobStatePool PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 22 실험]
+add_executable(Day22_ThreadPoolLocalQueue
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day22_ThreadPoolLocalQueue.cpp
+)
+target_include_directories(Day22_ThreadPoolLocalQueue PRIVATE src)
+target_link_libraries(Day22_ThreadPoolLocalQueue PRIVATE Threads::Threads)
+target_compile_options(Day22_ThreadPoolLocalQueue PRIVATE ${COMMON_COMPILE_OPTIONS})

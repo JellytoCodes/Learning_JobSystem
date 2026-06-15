@@ -153,6 +153,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 19 | Graph Execution Report | 노드별 queue wait와 실행 시간을 측정하고 critical path를 찾는다. |
 | Day 20 | Chrome Trace Export | 실행, 대기, dependency 흐름을 Trace Event JSON으로 내보낸다. |
 | Day 21 | JobState Pool | 작업 상태 객체를 재사용해 allocation pressure를 줄이는 구조를 실험한다. |
+| Day 22 | ThreadPool Local Queue | 워커 내부 제출을 local queue로 보내고 idle worker가 steal한다. |
 
 ### Day 15 — Helping Wait
 
@@ -298,6 +299,26 @@ Trace viewer에서는 worker lane의 활용률, queue wait, fan-out/fan-in 흐�
 이번 실험은 `JobState` 객체 allocation 수를 줄이는 데 초점을 둡니다.
 `shared_ptr` control block allocation은 여전히 남아 있으므로, 더 강하게 최적화하려면 intrusive ref count나 custom allocator까지 별도로 검토해야 합니다.
 
+### Day 22 — ThreadPool Local Queue Integration
+
+Day16의 독립 `WorkStealingPool` 구조를 실제 `ThreadPool` 실행 경로에 작게 통합했습니다.
+외부 스레드에서 호출한 `Submit()`은 기존처럼 global queue에 들어가고, worker 스레드가 작업 실행 중 다시 `Submit()`한 child 작업은 해당 worker의 local queue에 들어갑니다.
+
+실행 우선순위:
+
+| 순서 | 대상 | 이유 |
+|------|------|------|
+| 1 | 자기 local queue | worker가 방금 만든 child 작업을 빠르게 이어서 처리 |
+| 2 | global queue | 외부 제출 작업의 공정한 소비 |
+| 3 | 다른 worker local queue steal | idle worker가 과부하 worker의 일을 가져와 부하 불균형 완화 |
+
+통계도 추가했습니다.
+`GetQueueStats()`는 worker별 `globalPops`, `localPops`, `steals`, `jobsProcessed`를 반환합니다.
+Day22 실험은 외부 제출이 global queue를 타는지, worker 내부 제출이 local queue를 타는지, 과부하 local queue에서 steal이 발생하는지를 확인합니다.
+
+아직 lock-free deque는 아닙니다.
+이번 단계의 목적은 성능 극대화가 아니라 기존 `ThreadPool` API를 유지하면서 local queue / stealing 정책을 안전하게 연결하는 것입니다.
+
 ---
 
 ## 다음 방향
@@ -306,9 +327,9 @@ Week 3에서 다루기 좋은 후보:
 
 | 후보 | 이유 |
 |------|------|
-| JobState Pool | `shared_ptr<JobState>` 할당 비용을 줄이는 재사용 구조를 실험한다. |
-| ThreadPool local queue 통합 | Day16 실험 구조를 기존 `ThreadPool`에 점진적으로 반영한다. |
 | Trace ring buffer | 장시간 실행에서도 메모리를 제한하도록 고정 크기 event buffer를 실험한다. |
+| Week 3 recap | wait, queue, graph, trace, pool 실험을 한 번 정리한다. |
+| 마무리 로드맵 | 30일 완주를 위해 남은 실험과 정리 범위를 고정한다. |
 
-Day 22 후보로는 **ThreadPool local queue 통합**이 자연스럽습니다.
-Day16에서 독립적으로 본 work stealing 구조를 실제 `ThreadPool` 큐 정책에 점진적으로 반영하면, Day19~20의 관찰 도구로 병렬 실행 변화를 확인할 수 있습니다.
+Day 23 후보로는 **Trace ring buffer** 또는 **Week 3 recap**이 자연스럽습니다.
+30일 완주를 목표로 한다면 Day23~24에서 관찰 도구를 마무리하고, Day25~30은 정리와 안정화 중심으로 닫는 편이 좋습니다.
