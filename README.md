@@ -152,6 +152,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 18 | Graph Validation | invalid edge와 cycle을 실행 전에 검증하고 topological order를 만든다. |
 | Day 19 | Graph Execution Report | 노드별 queue wait와 실행 시간을 측정하고 critical path를 찾는다. |
 | Day 20 | Chrome Trace Export | 실행, 대기, dependency 흐름을 Trace Event JSON으로 내보낸다. |
+| Day 21 | JobState Pool | 작업 상태 객체를 재사용해 allocation pressure를 줄이는 구조를 실험한다. |
 
 ### Day 15 — Helping Wait
 
@@ -276,6 +277,27 @@ out\build\x64-debug\Day20_ChromeTraceExport.exe Day20_JobTrace.json
 텍스트 표는 정확한 수치를 비교하기 좋지만, 병렬 실행의 겹침과 빈 구간을 한눈에 읽기는 어렵습니다.
 Trace viewer에서는 worker lane의 활용률, queue wait, fan-out/fan-in 흐름을 시간축 위에서 함께 확인할 수 있습니다.
 
+### Day 21 — JobState Pool
+
+`experiments/Day21_JobStatePool.cpp`에서 `JobState` 객체 재사용 구조를 독립 실험했습니다.
+기존 `ThreadPool`은 작업 제출마다 `shared_ptr<JobState>`를 새로 만들기 때문에 작업 수가 많아질수록 heap allocation pressure가 커집니다.
+
+실험 구조:
+
+| 구성 | 역할 |
+|------|------|
+| `JobStatePool::Acquire()` | free list에서 상태 객체를 꺼내거나 새로 생성 |
+| custom deleter | 마지막 `shared_ptr` 참조가 사라질 때 pool로 반환 |
+| `ResetForReuse()` | `done`, `exception`, `continuations`를 초기 상태로 복원 |
+| generation | 같은 객체가 재사용됐는지 확인하는 관찰용 카운터 |
+
+핵심 수명 규칙은 간단합니다.
+핸들이 하나라도 살아 있으면 해당 `JobState`는 pool로 돌아가지 않습니다.
+마지막 핸들이 파괴된 뒤에만 custom deleter가 호출되고, 그 시점에 상태를 reset한 뒤 free list로 반환합니다.
+
+이번 실험은 `JobState` 객체 allocation 수를 줄이는 데 초점을 둡니다.
+`shared_ptr` control block allocation은 여전히 남아 있으므로, 더 강하게 최적화하려면 intrusive ref count나 custom allocator까지 별도로 검토해야 합니다.
+
 ---
 
 ## 다음 방향
@@ -288,5 +310,5 @@ Week 3에서 다루기 좋은 후보:
 | ThreadPool local queue 통합 | Day16 실험 구조를 기존 `ThreadPool`에 점진적으로 반영한다. |
 | Trace ring buffer | 장시간 실행에서도 메모리를 제한하도록 고정 크기 event buffer를 실험한다. |
 
-Day 21 후보로는 **JobState Pool**이 자연스럽습니다.
-그래프 기능과 관찰 도구를 마련했으므로, 이제 작업마다 발생하는 `shared_ptr<JobState>` 할당 비용과 재사용 구조를 측정할 수 있습니다.
+Day 22 후보로는 **ThreadPool local queue 통합**이 자연스럽습니다.
+Day16에서 독립적으로 본 work stealing 구조를 실제 `ThreadPool` 큐 정책에 점진적으로 반영하면, Day19~20의 관찰 도구로 병렬 실행 변화를 확인할 수 있습니다.

@@ -185,3 +185,10 @@ add_executable(Day20_ChromeTraceExport
 target_include_directories(Day20_ChromeTraceExport PRIVATE src)
 target_link_libraries(Day20_ChromeTraceExport PRIVATE Threads::Threads)
 target_compile_options(Day20_ChromeTraceExport PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 21 실험]
+add_executable(Day21_JobStatePool
+    experiments/Day21_JobStatePool.cpp
+)
+target_link_libraries(Day21_JobStatePool PRIVATE Threads::Threads)
+target_compile_options(Day21_JobStatePool PRIVATE ${COMMON_COMPILE_OPTIONS})
