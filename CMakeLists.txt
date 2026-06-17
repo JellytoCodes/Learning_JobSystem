@@ -202,3 +202,13 @@ add_executable(Day22_ThreadPoolLocalQueue
 target_include_directories(Day22_ThreadPoolLocalQueue PRIVATE src)
 target_link_libraries(Day22_ThreadPoolLocalQueue PRIVATE Threads::Threads)
 target_compile_options(Day22_ThreadPoolLocalQueue PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 23 실험]
+add_executable(Day23_TraceRingBuffer
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day23_TraceRingBuffer.cpp
+)
+target_include_directories(Day23_TraceRingBuffer PRIVATE src)
+target_link_libraries(Day23_TraceRingBuffer PRIVATE Threads::Threads)
+target_compile_options(Day23_TraceRingBuffer PRIVATE ${COMMON_COMPILE_OPTIONS})

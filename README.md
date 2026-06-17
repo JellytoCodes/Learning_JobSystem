@@ -154,6 +154,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 20 | Chrome Trace Export | 실행, 대기, dependency 흐름을 Trace Event JSON으로 내보낸다. |
 | Day 21 | JobState Pool | 작업 상태 객체를 재사용해 allocation pressure를 줄이는 구조를 실험한다. |
 | Day 22 | ThreadPool Local Queue | 워커 내부 제출을 local queue로 보내고 idle worker가 steal한다. |
+| Day 23 | Trace Ring Buffer | 고정 크기 trace buffer로 메모리 사용량을 고정하고 최근 event window만 보존한다. |
 
 ### Day 15 — Helping Wait
 
@@ -319,17 +320,44 @@ Day22 실험은 외부 제출이 global queue를 타는지, worker 내부 제출
 아직 lock-free deque는 아닙니다.
 이번 단계의 목적은 성능 극대화가 아니라 기존 `ThreadPool` API를 유지하면서 local queue / stealing 정책을 안전하게 연결하는 것입니다.
 
+### Day 23 — Trace Ring Buffer
+
+Day20에서는 전체 trace를 실행 후 파일로 내보냈습니다.
+Day23은 런타임 수집에 더 가까운 구조로, 고정 크기 `TraceRingBuffer`를 실험했습니다.
+
+구조는 단순합니다.
+
+| 구성 | 역할 |
+|------|------|
+| capacity | buffer가 보존할 수 있는 event 한도 |
+| sequence | event가 기록된 전역 순서 |
+| snapshot | 현재 buffer에 남아 있는 최근 event를 순서대로 복사 |
+| overwritten count | capacity를 초과해서 밀려난 old event 수 |
+
+실험은 세 가지를 확인합니다.
+
+| 실험 | 확인 내용 |
+|------|----------|
+| buffer large enough | 기록 event 수가 capacity 이하면 모든 event가 남는다. |
+| fixed recent window | burst로 capacity를 초과하면 old event가 overwrite된다. |
+| trace export | 남아 있는 최근 window만 Chrome Trace JSON으로 내보낸다. |
+
+핵심은 trade-off입니다.
+Ring buffer는 메모리 사용량을 고정하기 좋지만 전체 history를 보장하지 않습니다.
+따라서 trace를 분석할 때는 `total written`, `retained`, `overwritten`를 같이 봐야 합니다.
+
 ---
 
 ## 다음 방향
 
-Week 3에서 다루기 좋은 후보:
+30일 완주를 위한 남은 단계:
 
-| 후보 | 이유 |
+| Day | 방향 |
 |------|------|
-| Trace ring buffer | 장시간 실행에서도 메모리를 제한하도록 고정 크기 event buffer를 실험한다. |
-| Week 3 recap | wait, queue, graph, trace, pool 실험을 한 번 정리한다. |
-| 마무리 로드맵 | 30일 완주를 위해 남은 실험과 정리 범위를 고정한다. |
-
-Day 23 후보로는 **Trace ring buffer** 또는 **Week 3 recap**이 자연스럽습니다.
-30일 완주를 목표로 한다면 Day23~24에서 관찰 도구를 마무리하고, Day25~30은 정리와 안정화 중심으로 닫는 편이 좋습니다.
+| Day 24 | Week 3 recap과 wait / queue / graph / trace 흐름 정리 |
+| Day 25 | API 정리와 주석 cleanup |
+| Day 26 | stress / regression 실험 패키지 |
+| Day 27 | failure / cancel trace 보강 |
+| Day 28 | architecture recap |
+| Day 29 | README / portfolio packaging |
+| Day 30 | final review, remaining work list, one-month close |
