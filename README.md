@@ -160,6 +160,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 22 | ThreadPool Local Queue | 워커 내부 제출을 local queue로 보내고 idle worker가 steal한다. |
 | Day 23 | Trace Ring Buffer | 고정 크기 trace buffer로 메모리 사용량을 고정하고 최근 event window만 보존한다. |
 | Day 24 | Week 3 Recap | wait, queue, graph, trace, allocation 흐름과 현재 한계를 정리한다. |
+| Day 25 | API Cleanup | 공개 API는 유지하면서 오래된 설명, 중복 주석, 헤더 구현 위치를 정리한다. |
 
 ### Day 15 — Helping Wait
 
@@ -169,8 +170,10 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 Day 10의 문제는 워커가 `Wait()`로 막히면 큐에 남은 자식 작업을 실행할 스레드가 부족해진다는 점이었습니다.
 Helping Wait은 기다리는 워커도 진행에 기여하게 만들어 이 starvation 위험을 줄입니다.
 
-다만 현재 구현은 전역 큐에서만 작업을 꺼냅니다.
-실제 엔진에 가까워지려면 worker local queue, work stealing, 재진입 깊이 제한 같은 정책이 추가로 필요합니다.
+Day22 이후 일반 worker loop는 local -> global -> steal 순서로 작업을 찾습니다.
+`WaitWithHelping()` 호출 스레드는 별도 helper로 취급해 global queue 다음으로 임의의 worker local queue를 확인합니다.
+helper가 실행한 작업은 worker별 처리 통계에서 제외됩니다.
+재진입 깊이 제한과 thread affinity 정책은 아직 남아 있습니다.
 
 ### Day 16 — Work Stealing
 
@@ -432,6 +435,26 @@ local queue, stealing, pooling은 구조를 복잡하게 만들기 때문에 que
 Week 3의 결론은 더 많은 기능 자체가 아닙니다.
 **진행 보장, 부하 분산, 의존성 검증, 관측 가능성, 메모리 비용을 서로 다른 정책으로 보고 각각 검증해야 한다**는 점이 핵심입니다.
 
+### Day 25 — API and Comment Cleanup
+
+새 기능을 추가하지 않고 `ThreadPool`의 공개 표면과 설명을 현재 구현에 맞췄습니다.
+기존 실험이 그대로 빌드되도록 함수 이름과 반환 타입은 유지했습니다.
+
+정리한 항목:
+
+| 항목 | 변경 |
+|------|------|
+| `JobHandle` 문서 | 존재하지 않는 `SubmitWithHandle()` 예시를 현재 `Submit()` API로 수정 |
+| queue 설명 | global queue 하나만 표현하던 구조도를 global/local/steal 정책으로 갱신 |
+| `WaitWithHelping()` | Day22 이후 실제 탐색 순서를 문서에 반영 |
+| query API | `IsDone()`, `HasException()`, 통계 getter 등에 `[[nodiscard]]` 추가 |
+| statistics 구현 | 긴 inline 본문을 `ThreadPool.cpp`로 이동해 헤더에는 계약만 유지 |
+| condition variable 설명 | 현재 구현의 `notify_all()` 정책과 일치하도록 수정 |
+
+이 단계의 핵심은 cleanup에서도 호환성을 지키는 것입니다.
+API 이름을 바꾸거나 통계 구조를 합치면 코드는 더 짧아질 수 있지만, 이전 Day 실험 전체를 수정해야 합니다.
+Day25는 기존 학습 기록을 보존하면서 잘못된 설명과 헤더 노이즈만 줄였습니다.
+
 ---
 
 ## 다음 방향
@@ -440,7 +463,6 @@ Week 3의 결론은 더 많은 기능 자체가 아닙니다.
 
 | Day | 방향 |
 |------|------|
-| Day 25 | API 정리와 주석 cleanup |
 | Day 26 | stress / regression 실험 패키지 |
 | Day 27 | failure / cancel trace 보강 |
 | Day 28 | architecture recap |

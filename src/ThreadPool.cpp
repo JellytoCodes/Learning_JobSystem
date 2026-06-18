@@ -258,6 +258,52 @@ void ThreadPool::WaitWithHelping(const JobHandle& handle)
 }
 
 // =============================================================================
+// Statistics
+// =============================================================================
+std::vector<ThreadPool::ThreadStats> ThreadPool::GetPerThreadStats() const
+{
+    const uint32_t count = GetThreadCount();
+    std::vector<ThreadStats> stats;
+    stats.reserve(count);
+
+    for (uint32_t i = 0; i < count; ++i)
+        stats.push_back({ i, _perThreadJobCount[i].load() });
+
+    return stats;
+}
+
+std::vector<ThreadPool::QueueStats> ThreadPool::GetQueueStats() const
+{
+    const uint32_t count = GetThreadCount();
+    std::vector<QueueStats> stats;
+    stats.reserve(count);
+
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        stats.push_back({
+            i,
+            _perThreadJobCount[i].load(),
+            _localPopCount[i].load(),
+            _globalPopCount[i].load(),
+            _stealCount[i].load()
+        });
+    }
+
+    return stats;
+}
+
+void ThreadPool::ResetStats()
+{
+    for (uint32_t i = 0; i < GetThreadCount(); ++i)
+    {
+        _perThreadJobCount[i].store(0);
+        _localPopCount[i].store(0);
+        _globalPopCount[i].store(0);
+        _stealCount[i].store(0);
+    }
+}
+
+// =============================================================================
 // TryExecuteOneJob — 큐에서 작업 하나를 꺼내 현재 스레드에서 실행
 // =============================================================================
 bool ThreadPool::TryExecuteOneJob(uint32_t* workerThreadIdx)

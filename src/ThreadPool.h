@@ -45,7 +45,7 @@ public:
 // =============================================================================
 // JobHandle
 //
-// SubmitWithHandle()이 반환하는 경량 핸들.
+// ThreadPool::Submit()이 반환하는 경량 핸들.
 // 특정 작업 하나의 완료를 추적한다.
 //
 // WaitAll()과의 차이:
@@ -53,8 +53,8 @@ public:
 //   JobHandle  : 이 핸들에 연결된 특정 작업 하나만 골라서 기다림
 //
 // 사용 예:
-//   auto h1 = pool.SubmitWithHandle([] { SlowTask(); });
-//   auto h2 = pool.SubmitWithHandle([] { FastTask(); });
+//   auto h1 = pool.Submit([] { SlowTask(); });
+//   auto h2 = pool.Submit([] { FastTask(); });
 //   h2.Wait();   // FastTask만 기다림, SlowTask는 아직 실행 중일 수 있음
 //   h1.Wait();   // 이제 SlowTask도 기다림
 // =============================================================================
@@ -92,7 +92,7 @@ public:
     //   완료 여부를 논블로킹으로 확인한다.
     //   핸들이 유효하지 않으면 true 반환 (기다릴 게 없음).
     // -------------------------------------------------------------------------
-    bool IsDone() const
+    [[nodiscard]] bool IsDone() const
     {
         if (!_state) return true;
         return _state->done.load(std::memory_order_acquire);
@@ -102,9 +102,9 @@ public:
     // HasException
     //   작업이 예외를 던졌는지 확인한다.
     //   Wait()는 완료 대기 후 예외를 다시 던지므로,
-    //   예외 여부만 보고 싶을 때 사용하는 논블로킹 확인용 함수.
+    //   완료를 기다리지는 않으므로, 작업 실행 중에는 false였다가 나중에 true가 될 수 있다.
     // -------------------------------------------------------------------------
-    bool HasException() const
+    [[nodiscard]] bool HasException() const
     {
         if (!_state) return false;
         std::unique_lock<std::mutex> lock(_state->mutex);
@@ -116,7 +116,7 @@ public:
     //   핸들이 실제 작업과 연결되어 있는지 확인.
     //   default 생성된 JobHandle은 IsValid() == false.
     // -------------------------------------------------------------------------
-    bool IsValid() const { return _state != nullptr; }
+    [[nodiscard]] bool IsValid() const { return _state != nullptr; }
 
 private:
     friend class ThreadPool;
@@ -163,12 +163,10 @@ private:
 //     작업마다 스레드를 새로 만들고 죽이면 오버헤드가 작업 자체보다 커질 수 있다.
 //     미리 만들어두면 작업 제출(Submit) 시 즉시 실행 가능하다.
 //
-//   구조 요약:
-//     [메인 스레드]       Submit(job) ──→  [Job Queue]
-//                                               ↓ (락 경쟁)
-//     [Worker 스레드 0]  ←── job 꺼냄 ──←──────┤
-//     [Worker 스레드 1]  ←── job 꺼냄 ──←──────┤
-//     [Worker 스레드 2]  ←── job 꺼냄 ──←──────┘
+//   큐 라우팅 요약:
+//     외부 스레드 Submit  -> global queue
+//     worker 내부 Submit  -> 해당 worker local queue
+//     worker 실행 순서    -> local pop, global pop, 다른 local queue steal
 // =============================================================================
 class ThreadPool
 {
@@ -196,18 +194,8 @@ public:
 
     // -------------------------------------------------------------------------
     // Submit
-    //   실행할 작업(job)을 큐에 넣는다.
-    //   std::function<void()>이므로 람다, 함수 포인터, functor 모두 넣을 수 있다.
-    //
-    //   예:
-    //     pool.Submit([&result, i] { result[i] = HeavyComputation(i); });
-    //
-    //   Submit 직후 job이 즉시 실행되는 게 아니라,
-    //   워커 스레드 중 하나가 큐에서 꺼내 실행한다.
-    // -------------------------------------------------------------------------
-    // -------------------------------------------------------------------------
-    // Submit
     //   작업을 큐에 넣고 JobHandle을 반환한다.
+    //   std::function<void()>이므로 람다, 함수 포인터, functor를 제출할 수 있다.
     //
     //   반환값을 무시해도 컴파일 OK — 기존 코드와 완전 호환.
     //     pool.Submit([]{...});            // 핸들 무시, 기존 방식
@@ -277,7 +265,7 @@ public:
     //     shared_ptr로 감싸면 람다가 포인터(복사 가능)를 캡처하므로 해결된다.
     // -------------------------------------------------------------------------
     template<typename Func>
-    auto SubmitWithFuture(Func&& func) -> std::future<std::invoke_result_t<Func>>
+    [[nodiscard]] auto SubmitWithFuture(Func&& func) -> std::future<std::invoke_result_t<Func>>
     {
         using ReturnType = std::invoke_result_t<Func>;
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
@@ -306,8 +294,9 @@ public:
     //     WaitWithHelping  : 호출 스레드가 대기 중에도 다른 작업을 처리
     //
     //   Day 10의 worker wait starvation을 완화하는 방향이다.
-    //   실제 엔진에서는 전역 큐뿐 아니라 worker local queue와 work stealing까지
-    //   함께 고려하지만, 여기서는 helping wait의 핵심 아이디어만 실험한다.
+    //   호출 스레드는 worker index와 무관한 helper로 취급한다.
+    //   global queue를 먼저 확인한 뒤 임의의 worker local queue에서 steal하며,
+    //   helper가 실행한 작업은 worker별 처리 통계에서 제외한다.
     // -------------------------------------------------------------------------
     void WaitWithHelping(const JobHandle& handle);
 
@@ -315,13 +304,16 @@ public:
     // GetThreadCount
     //   현재 생성된 워커 스레드 수 반환.
     // -------------------------------------------------------------------------
-    uint32_t GetThreadCount() const { return static_cast<uint32_t>(_workers.size()); }
+    [[nodiscard]] uint32_t GetThreadCount() const
+    {
+        return static_cast<uint32_t>(_workers.size());
+    }
 
     // -------------------------------------------------------------------------
     // GetPendingJobCount
     //   아직 완료되지 않은 작업 수 (실행 중 + 큐 대기 중 합산).
     // -------------------------------------------------------------------------
-    uint32_t GetPendingJobCount() const { return _pendingJobs.load(); }
+    [[nodiscard]] uint32_t GetPendingJobCount() const { return _pendingJobs.load(); }
 
     // -------------------------------------------------------------------------
     // ThreadStats / GetPerThreadStats
@@ -344,44 +336,9 @@ public:
         uint64_t steals;
     };
 
-    std::vector<ThreadStats> GetPerThreadStats() const
-    {
-        const uint32_t n = GetThreadCount();
-        std::vector<ThreadStats> stats;
-        stats.reserve(n);
-        for (uint32_t i = 0; i < n; ++i)
-            stats.push_back({ i, _perThreadJobCount[i].load() });
-        return stats;
-    }
-
-    std::vector<QueueStats> GetQueueStats() const
-    {
-        const uint32_t n = GetThreadCount();
-        std::vector<QueueStats> stats;
-        stats.reserve(n);
-        for (uint32_t i = 0; i < n; ++i)
-        {
-            stats.push_back({
-                i,
-                _perThreadJobCount[i].load(),
-                _localPopCount[i].load(),
-                _globalPopCount[i].load(),
-                _stealCount[i].load()
-            });
-        }
-        return stats;
-    }
-
-    void ResetStats()
-    {
-        for (uint32_t i = 0; i < GetThreadCount(); ++i)
-        {
-            _perThreadJobCount[i].store(0);
-            _localPopCount[i].store(0);
-            _globalPopCount[i].store(0);
-            _stealCount[i].store(0);
-        }
-    }
+    [[nodiscard]] std::vector<ThreadStats> GetPerThreadStats() const;
+    [[nodiscard]] std::vector<QueueStats> GetQueueStats() const;
+    void ResetStats();
 
 private:
     struct LocalQueue
@@ -434,8 +391,8 @@ private:
     //     condition_variable은 OS 레벨에서 스레드를 블록하므로 CPU를 낭비하지 않는다.
     //
     //   wait()   : 뮤텍스를 원자적으로 해제 + 스레드 블록 (다른 스레드가 뮤텍스 취득 가능)
-    //   notify_one() : 잠든 스레드 하나만 깨움 (Submit 시 사용)
-    //   notify_all() : 잠든 모든 스레드 깨움 (종료 시 사용)
+    //   notify_all() : local/global 어느 큐에 들어오든 steal 가능한 워커를 함께 깨운다.
+    //                  종료 시에도 모든 워커를 깨우는 데 사용한다.
     // -------------------------------------------------------------------------
     std::condition_variable _workerCv;
 
