@@ -25,7 +25,11 @@ UE5 TaskGraph, Unity Job System 같은 엔진 내부 시스템이 어떻게 동�
 | 성공 기반 후속 작업 | `SubmitAfterAllSucceeded(dependencies, job)` |
 | 작업 예외 전파 | `std::exception_ptr` 저장 후 `JobHandle::Wait()`에서 재전파 |
 | 실패 정책 | 완료 기반 실행 vs 성공 기반 취소 |
-| Work Stealing 실험 | worker local queue + steal 구조 |
+| 큐 라우팅 | 외부 Submit은 global queue, worker 내부 Submit은 local queue |
+| Work Stealing | idle worker가 다른 worker의 local queue에서 작업을 가져옴 |
+| 큐 통계 | `GetQueueStats()`로 global/local pop, steal, 처리량 확인 |
+| 관측성 실험 | graph report, Chrome Trace export, trace ring buffer |
+| 메모리 재사용 실험 | `JobStatePool` free list + generation 관찰 |
 
 ---
 
@@ -142,7 +146,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 
 ---
 
-## Week 3 — Wait 정책과 큐 구조
+## Week 3 — 스케줄링, 그래프, 관측성
 
 | Day | 주제 | 핵심 |
 |-----|------|------|
@@ -155,6 +159,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 21 | JobState Pool | 작업 상태 객체를 재사용해 allocation pressure를 줄이는 구조를 실험한다. |
 | Day 22 | ThreadPool Local Queue | 워커 내부 제출을 local queue로 보내고 idle worker가 steal한다. |
 | Day 23 | Trace Ring Buffer | 고정 크기 trace buffer로 메모리 사용량을 고정하고 최근 event window만 보존한다. |
+| Day 24 | Week 3 Recap | wait, queue, graph, trace, allocation 흐름과 현재 한계를 정리한다. |
 
 ### Day 15 — Helping Wait
 
@@ -346,6 +351,87 @@ Day23은 런타임 수집에 더 가까운 구조로, 고정 크기 `TraceRingBu
 Ring buffer는 메모리 사용량을 고정하기 좋지만 전체 history를 보장하지 않습니다.
 따라서 trace를 분석할 때는 `total written`, `retained`, `overwritten`를 같이 봐야 합니다.
 
+### Day 24 — Week 3 Recap
+
+Week 3의 핵심은 ThreadPool을 단순한 작업 큐에서 **정책을 관찰하고 교체할 수 있는 JobSystem**으로 확장한 것입니다.
+
+전체 흐름:
+
+```text
+Graph declaration
+    -> validation / topological order
+    -> dependency가 준비된 job 제출
+    -> global 또는 worker local queue로 routing
+    -> local pop / global pop / steal
+    -> job 실행과 JobState 완료
+    -> continuation 제출
+    -> report / trace event 수집
+```
+
+#### 1. Wait 정책과 진행 보장
+
+| 방식 | 호출 스레드 | 장점 | 비용/위험 |
+|------|-------------|------|-----------|
+| `JobHandle::Wait()` | block | 구현과 의미가 단순함 | worker에서 사용하면 starvation 가능 |
+| `WaitWithHelping()` | 대기 중 작업 실행 | worker slot 낭비를 줄임 | 재진입과 실행 순서가 복잡해짐 |
+| continuation | block하지 않음 | dependency graph를 자연스럽게 진행 | 상태와 failure policy 관리 필요 |
+
+Helping wait은 deadlock을 자동으로 없애는 만능 해법이 아닙니다.
+대기 중 임의의 작업을 실행하므로 호출 스택이 깊어질 수 있고, 작업이 암묵적으로 thread affinity를 가정하면 문제가 생길 수 있습니다.
+
+#### 2. Queue 정책과 부하 분산
+
+| 제출 위치 | queue | 소비 방식 |
+|-----------|-------|-----------|
+| 외부 스레드 | global queue | worker가 FIFO pop |
+| worker 내부 | 해당 worker local queue | owner가 LIFO pop |
+| idle worker | 다른 worker local queue | 앞쪽에서 FIFO steal |
+
+local queue는 parent가 만든 child의 locality를 높이고 global mutex 경쟁을 줄입니다.
+반면 queue가 여러 개로 분산되므로 종료 조건, wake-up predicate, pending count가 모든 queue를 함께 고려해야 합니다.
+`GetQueueStats()`의 local/global pop과 steal 수는 이 정책이 실제 workload에서 작동했는지 확인하기 위한 최소 계측입니다.
+
+#### 3. Graph 계층과 실행 정책
+
+| 단계 | 책임 |
+|------|------|
+| builder | node와 dependency를 선언 |
+| validation | invalid edge, duplicate, self dependency, cycle 차단 |
+| topological order | dependency가 먼저 제출되도록 순서 생성 |
+| failure policy | 완료 후 실행 또는 전체 성공 후 실행 선택 |
+| execution report | queue wait, 실행 시간, critical path 계산 |
+
+그래프 구조와 스케줄러 구현은 분리해야 합니다.
+그래프는 **무엇이 무엇에 의존하는지**를 표현하고, ThreadPool은 **준비된 작업을 어느 worker가 실행할지**를 결정합니다.
+
+#### 4. 관측성과 메모리 비용
+
+| 도구/구조 | 얻는 것 | 잃는 것 |
+|-----------|---------|---------|
+| text report | 정확한 수치와 critical path | 병렬 구간을 직관적으로 보기 어려움 |
+| Chrome Trace | worker overlap과 dependency 흐름 | event 저장/직렬화 비용 |
+| trace ring buffer | 고정 메모리, 최근 구간 보존 | 오래된 history overwrite |
+| `JobStatePool` | 상태 객체 재사용 | pool lifetime과 reset 규칙 복잡도 |
+
+성능 최적화는 측정과 함께 들어가야 합니다.
+local queue, stealing, pooling은 구조를 복잡하게 만들기 때문에 queue 통계와 trace 없이 적용하면 실제 개선 여부를 판단하기 어렵습니다.
+
+#### 현재 경계
+
+다음 항목은 아직 production 수준 구현이 아닙니다.
+
+| 항목 | 현재 상태 |
+|------|-----------|
+| local queue | mutex 기반 `deque`; lock-free work-stealing deque 아님 |
+| `JobStatePool` | 독립 실험이며 기본 `ThreadPool`에는 미통합 |
+| graph builder/report | 실험 파일별 구현이며 공용 라이브러리 API로 추출되지 않음 |
+| trace ring buffer | mutex 기반 producer serialization |
+| cancellation | 실행 전 후속 작업 취소만 표현; 실행 중 cooperative cancellation 없음 |
+| affinity/priority | worker affinity와 job priority 정책 없음 |
+
+Week 3의 결론은 더 많은 기능 자체가 아닙니다.
+**진행 보장, 부하 분산, 의존성 검증, 관측 가능성, 메모리 비용을 서로 다른 정책으로 보고 각각 검증해야 한다**는 점이 핵심입니다.
+
 ---
 
 ## 다음 방향
@@ -354,7 +440,6 @@ Ring buffer는 메모리 사용량을 고정하기 좋지만 전체 history를 �
 
 | Day | 방향 |
 |------|------|
-| Day 24 | Week 3 recap과 wait / queue / graph / trace 흐름 정리 |
 | Day 25 | API 정리와 주석 cleanup |
 | Day 26 | stress / regression 실험 패키지 |
 | Day 27 | failure / cancel trace 보강 |
