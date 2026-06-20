@@ -162,6 +162,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 24 | Week 3 Recap | wait, queue, graph, trace, allocation 흐름과 현재 한계를 정리한다. |
 | Day 25 | API Cleanup | 공개 API는 유지하면서 오래된 설명, 중복 주석, 헤더 구현 위치를 정리한다. |
 | Day 26 | Regression Suite | 핵심 스케줄링 계약을 한 실행 파일에서 반복 검증한다. |
+| Day 27 | Failure / Cancel Trace | 실행 실패와 dependency 기반 취소를 서로 다른 trace event로 기록한다. |
 
 ### Day 15 — Helping Wait
 
@@ -483,6 +484,21 @@ out\build\x64-debug\Day26_RegressionSuite.exe 10
 기본 패스와 10배 패스 모두 6개 검사가 통과하는 것을 확인했습니다.
 실행 시간은 환경에 따라 달라지므로 절대 성능 기준이 아니라 회귀 위치를 찾기 위한 참고값입니다.
 
+### Day 27 — Failure / Cancel Trace
+
+`experiments/Day27_FailureCancelTrace.cpp`는 성공, 실패, 취소 상태를 하나의 Chrome Trace JSON에 기록합니다.
+
+실행된 성공/실패 작업은 duration event(`X`)로 기록합니다. Dependency 실패로 본문이 실행되지 않은 작업은 가짜 실행 구간을 만들지 않고 scheduler lane의 instant event(`i`)로 기록합니다. 실패 또는 상위 취소에서 하위 취소로 이어지는 관계는 flow event(`s`/`f`)로 연결합니다.
+
+```powershell
+out\build\x64-debug\Day27_FailureCancelTrace.exe
+out\build\x64-debug\Day27_FailureCancelTrace.exe Day27_FailureCancelTrace.json
+```
+
+기본 시나리오는 `LoadInput -> Decode(failed)` 이후 completion 정책의 `Cleanup`은 실행하고, all-succeeded 정책의 `BuildOutput`과 그 후속 `Publish`는 취소합니다. 취소 작업은 실제 worker 본문을 실행하지 않으므로 worker 실행 구간을 갖지 않습니다.
+
+현재 `ThreadPool`은 cancellation callback이나 정확한 cancel timestamp를 공개하지 않습니다. 따라서 trace의 취소 시각은 마지막 dependency 완료 시각으로 추론하며 JSON의 `timestamp_source`에 이 사실을 남깁니다.
+
 ---
 
 ## 다음 방향
@@ -491,7 +507,6 @@ out\build\x64-debug\Day26_RegressionSuite.exe 10
 
 | Day | 방향 |
 |------|------|
-| Day 27 | failure / cancel trace 보강 |
 | Day 28 | architecture recap |
 | Day 29 | README / portfolio packaging |
 | Day 30 | final review, remaining work list, one-month close |

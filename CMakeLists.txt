@@ -222,3 +222,13 @@ add_executable(Day26_RegressionSuite
 target_include_directories(Day26_RegressionSuite PRIVATE src)
 target_link_libraries(Day26_RegressionSuite PRIVATE Threads::Threads)
 target_compile_options(Day26_RegressionSuite PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 27 experiment]
+add_executable(Day27_FailureCancelTrace
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day27_FailureCancelTrace.cpp
+)
+target_include_directories(Day27_FailureCancelTrace PRIVATE src)
+target_link_libraries(Day27_FailureCancelTrace PRIVATE Threads::Threads)
+target_compile_options(Day27_FailureCancelTrace PRIVATE ${COMMON_COMPILE_OPTIONS})
