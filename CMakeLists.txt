@@ -212,3 +212,13 @@ add_executable(Day23_TraceRingBuffer
 target_include_directories(Day23_TraceRingBuffer PRIVATE src)
 target_link_libraries(Day23_TraceRingBuffer PRIVATE Threads::Threads)
 target_compile_options(Day23_TraceRingBuffer PRIVATE ${COMMON_COMPILE_OPTIONS})
+
+# [Day 26 실험]
+add_executable(Day26_RegressionSuite
+    src/ThreadPool.h
+    src/ThreadPool.cpp
+    experiments/Day26_RegressionSuite.cpp
+)
+target_include_directories(Day26_RegressionSuite PRIVATE src)
+target_link_libraries(Day26_RegressionSuite PRIVATE Threads::Threads)
+target_compile_options(Day26_RegressionSuite PRIVATE ${COMMON_COMPILE_OPTIONS})

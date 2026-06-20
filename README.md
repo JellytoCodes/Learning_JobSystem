@@ -161,6 +161,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 23 | Trace Ring Buffer | 고정 크기 trace buffer로 메모리 사용량을 고정하고 최근 event window만 보존한다. |
 | Day 24 | Week 3 Recap | wait, queue, graph, trace, allocation 흐름과 현재 한계를 정리한다. |
 | Day 25 | API Cleanup | 공개 API는 유지하면서 오래된 설명, 중복 주석, 헤더 구현 위치를 정리한다. |
+| Day 26 | Regression Suite | 핵심 스케줄링 계약을 한 실행 파일에서 반복 검증한다. |
 
 ### Day 15 — Helping Wait
 
@@ -455,6 +456,33 @@ Week 3의 결론은 더 많은 기능 자체가 아닙니다.
 API 이름을 바꾸거나 통계 구조를 합치면 코드는 더 짧아질 수 있지만, 이전 Day 실험 전체를 수정해야 합니다.
 Day25는 기존 학습 기록을 보존하면서 잘못된 설명과 헤더 노이즈만 줄였습니다.
 
+### Day 26 — ThreadPool Stress / Regression Suite
+
+Day01~25에서 개별적으로 확인한 핵심 계약을 `Day26_RegressionSuite` 하나로 묶었습니다.
+각 검사는 조건 불일치 시 예외를 던지고, suite는 `[PASS]` / `[FAIL]`과 실행 시간을 출력한 뒤 실패가 하나라도 있으면 non-zero exit code를 반환합니다.
+
+검사 항목:
+
+| 검사 | 보장하는 계약 |
+|------|---------------|
+| high-volume external submit | 모든 외부 작업이 완료되고 pending count가 0으로 돌아옴 |
+| nested submit and local/steal | worker 내부 child가 local pop 또는 steal 경로에서 유실 없이 처리됨 |
+| dependency fan-in | 모든 dependency 완료 후에만 fan-in continuation 실행 |
+| failure policies | 완료 기반 continuation은 실행되고 성공 기반 continuation은 취소됨 |
+| helping wait under saturation | 모든 worker가 parent를 실행 중이어도 child 작업이 진행됨 |
+| repeated pool lifecycle | 반복 생성, 제출, 대기, 소멸 과정에서 작업 유실 없음 |
+
+기본 실행과 stress 실행:
+
+```powershell
+out\build\x64-debug\Day26_RegressionSuite.exe
+out\build\x64-debug\Day26_RegressionSuite.exe 10
+```
+
+두 번째 인자는 workload multiplier이며 `1~100` 범위입니다.
+기본 패스와 10배 패스 모두 6개 검사가 통과하는 것을 확인했습니다.
+실행 시간은 환경에 따라 달라지므로 절대 성능 기준이 아니라 회귀 위치를 찾기 위한 참고값입니다.
+
 ---
 
 ## 다음 방향
@@ -463,7 +491,6 @@ Day25는 기존 학습 기록을 보존하면서 잘못된 설명과 헤더 노�
 
 | Day | 방향 |
 |------|------|
-| Day 26 | stress / regression 실험 패키지 |
 | Day 27 | failure / cancel trace 보강 |
 | Day 28 | architecture recap |
 | Day 29 | README / portfolio packaging |
