@@ -163,6 +163,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 25 | API Cleanup | 공개 API는 유지하면서 오래된 설명, 중복 주석, 헤더 구현 위치를 정리한다. |
 | Day 26 | Regression Suite | 핵심 스케줄링 계약을 한 실행 파일에서 반복 검증한다. |
 | Day 27 | Failure / Cancel Trace | 실행 실패와 dependency 기반 취소를 서로 다른 trace event로 기록한다. |
+| Day 28 | Architecture Recap | 코어, 정책, 실험 계층과 현재 production 경계를 정리한다. |
 
 ### Day 15 — Helping Wait
 
@@ -499,6 +500,98 @@ out\build\x64-debug\Day27_FailureCancelTrace.exe Day27_FailureCancelTrace.json
 
 현재 `ThreadPool`은 cancellation callback이나 정확한 cancel timestamp를 공개하지 않습니다. 따라서 trace의 취소 시각은 마지막 dependency 완료 시각으로 추론하며 JSON의 `timestamp_source`에 이 사실을 남깁니다.
 
+### Day 28 — Architecture Recap
+
+Day01~27의 결과를 현재 코드 기준으로 다시 나누면, 이 저장소는 하나의 거대한 JobSystem이 아니라 **작게 유지한 실행 코어와 교체 가능한 정책 실험 모음**입니다.
+
+#### 현재 전체 흐름
+
+```text
+Submit / SubmitAfter / SubmitAfterAllSucceeded
+    -> JobState 생성과 JobHandle 반환
+    -> 외부 제출은 global FIFO
+       worker 내부 제출은 해당 worker local LIFO
+    -> worker: local -> global -> steal
+       helper: global -> steal any
+    -> wrapped job 실행
+    -> 성공 또는 exception_ptr 저장
+    -> JobState 완료 + continuation 호출
+    -> pending count 감소
+    -> Wait / WaitAll / WaitWithHelping 해제
+```
+
+#### 코어에 실제 통합된 책임
+
+| 영역 | 현재 구현 | 소유 위치 |
+|------|-----------|-----------|
+| 실행 | worker 생성, queue 소비, shutdown 시 이미 queue에 들어온 작업 drain | `ThreadPool` |
+| 작업 상태 | 완료 flag, 예외, continuation 목록 | `JobState` |
+| 외부 관찰 | 단일 작업 대기, 완료/예외 query | `JobHandle` |
+| 의존성 | completion 또는 all-succeeded continuation | `ThreadPool::SubmitAfter*` |
+| 큐 정책 | global FIFO, owner local LIFO, thief FIFO | `ThreadPool` queue helpers |
+| 진행 보조 | 대기 스레드가 global/steal 작업 실행 | `WaitWithHelping()` |
+| 완료 추적 | queued + running 작업을 하나의 atomic count로 추적 | `_pendingJobs` |
+| 최소 계측 | worker별 처리량, local/global pop, steal count | `GetQueueStats()` |
+
+핵심 불변식은 다음과 같습니다.
+
+1. 제출되어 실행 가능한 작업은 global 또는 local queue 중 한 곳에만 존재합니다.
+2. `_pendingJobs`는 queue 대기와 실행 중 작업을 모두 포함하며, 실행 종료 시 정확히 한 번 감소합니다.
+3. 정상 실행 경로의 `JobState`는 성공과 실패 모두에서 완료되며, 상태 lock 밖에서 continuation을 호출합니다.
+4. dependency counter는 성공 여부가 아니라 완료 수를 추적합니다.
+5. success-only 정책만 dependency exception을 읽어 후속 작업을 `JobCanceledException`으로 완료합니다.
+6. worker와 helper가 어느 경로에서 작업을 가져가도 동일한 wrapped job 완료 경로를 사용합니다.
+
+#### 동기화 경계
+
+| 공유 자원 | 보호 방식 | 이유 |
+|-----------|-----------|------|
+| global queue / stop 전환 | `_queueMutex` | 외부 제출과 worker wake-up 조건 직렬화 |
+| worker local queue | queue별 mutex | owner pop과 다른 worker steal 충돌 방지 |
+| JobState exception/continuation | `JobState::mutex` | 완료와 continuation 등록 경쟁 방지 |
+| JobState 완료 여부 | atomic + condition variable | 빠른 query와 blocking wait 모두 지원 |
+| 전체 pending count | atomic + completion CV | queue 위치와 무관한 전체 완료 조건 제공 |
+| 통계 | worker별 atomic counter | 실행 경로를 막지 않고 관찰 |
+
+#### 코어와 분리된 실험 계층
+
+| 실험 | 검증한 설계 | 현재 상태 |
+|------|-------------|-----------|
+| graph builder / validation | 선언형 dependency와 cycle 검증 | 공용 코어 API로 미통합 |
+| execution report | queue wait, 실행 시간, critical path | 실험별 record 구조 사용 |
+| Chrome Trace | worker overlap과 dependency flow | 실행 후 파일 export |
+| trace ring buffer | 고정 메모리 recent window | mutex 기반 독립 recorder |
+| JobState pool | allocation 재사용과 generation | 기본 `shared_ptr<JobState>`를 대체하지 않음 |
+| failure/cancel trace | failed duration과 canceled instant 구분 | cancel 시각은 dependency 완료로 추론 |
+
+이 분리는 의도적입니다. 실험 결과가 유효하더라도 코어 API에 바로 합치면 이전 Day의 계약과 사용 예제를 함께 바꿔야 합니다. 먼저 독립 실험과 Day26 regression suite로 정책을 검증한 뒤, 실제 사용 요구가 생길 때 통합하는 편이 변경 비용을 통제하기 쉽습니다.
+
+#### 현재 보장과 현재 한계
+
+| 구분 | 내용 |
+|------|------|
+| 보장 | 외부/중첩 제출 완료, fan-in 순서, failure policy, helping wait 진행, 반복 lifecycle |
+| 보장하지 않음 | 작업 실행 순서, 특정 worker 실행, 절대 성능, lock-free 진행성 |
+| 취소 한계 | 실행 전 success-only continuation 취소만 지원; 실행 중 cooperative cancel 없음 |
+| scheduling 한계 | priority, affinity, NUMA 인식, starvation fairness 정책 없음 |
+| memory 한계 | 기본 경로는 작업마다 `shared_ptr<JobState>` 할당 |
+| observability 한계 | 코어 내장 trace가 아니며 실험 wrapper가 계측 |
+| graph 한계 | graph 타입과 validation이 공용 라이브러리 표면에 없음 |
+| lifecycle 한계 | pool 소멸과 dependency continuation 제출이 겹치는 동시성 계약은 미정의 |
+
+#### Production 방향으로 확장한다면
+
+현재 학습 코어를 실제 엔진 시스템으로 확장할 때의 우선순위는 기능 수가 아니라 계약 강화입니다.
+
+1. cancellation token과 정확한 상태 전이 정의
+2. graph/trace 타입의 공용 API 여부 결정
+3. JobState allocator 또는 intrusive handle 소유권 설계
+4. bounded queue와 overload/back-pressure 정책
+5. shutdown 중 submit, cancel, dependency 등록의 경쟁 조건 명세
+6. sanitizer, 장시간 soak, randomized scheduling 검증
+
+Day28의 결론은 **queue, wait, dependency, failure, memory, observability를 각각 독립 정책으로 유지해야 확장과 검증이 가능하다**는 것입니다.
+
 ---
 
 ## 다음 방향
@@ -507,6 +600,5 @@ out\build\x64-debug\Day27_FailureCancelTrace.exe Day27_FailureCancelTrace.json
 
 | Day | 방향 |
 |------|------|
-| Day 28 | architecture recap |
 | Day 29 | README / portfolio packaging |
 | Day 30 | final review, remaining work list, one-month close |
