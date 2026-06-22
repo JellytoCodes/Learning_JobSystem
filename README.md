@@ -5,6 +5,15 @@
 
 ---
 
+## 빠른 탐색
+
+- [포트폴리오용 Case Study](PORTFOLIO.md)
+- [ThreadPool 공용 API](src/ThreadPool.h) / [구현](src/ThreadPool.cpp)
+- [핵심 계약 회귀 테스트](experiments/Day26_RegressionSuite.cpp)
+- [실패와 취소 Trace](experiments/Day27_FailureCancelTrace.cpp)
+
+---
+
 ## 목표
 
 UE5 TaskGraph, Unity Job System 같은 엔진 내부 시스템이 어떻게 동작하는지 직접 구현해서 이해합니다.
@@ -164,6 +173,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 26 | Regression Suite | 핵심 스케줄링 계약을 한 실행 파일에서 반복 검증한다. |
 | Day 27 | Failure / Cancel Trace | 실행 실패와 dependency 기반 취소를 서로 다른 trace event로 기록한다. |
 | Day 28 | Architecture Recap | 코어, 정책, 실험 계층과 현재 production 경계를 정리한다. |
+| Day 29 | Portfolio Packaging | 대표 구현, 검증 근거, trade-off를 하나의 case study로 정리한다. |
 
 ### Day 15 — Helping Wait
 
@@ -594,11 +604,21 @@ Day28의 결론은 **queue, wait, dependency, failure, memory, observability를 
 
 ---
 
+### Day 29 — Portfolio Packaging
+
+처음 보는 사람이 전체 일지를 순서대로 읽지 않아도 프로젝트의 문제, 핵심 설계 결정,
+검증 근거와 한계를 파악할 수 있도록 [`PORTFOLIO.md`](PORTFOLIO.md)를 추가했습니다.
+
+문서는 대표 구현을 코어, queue, regression, trace 관점으로 연결하고 Day26 회귀 테스트의
+재현 명령과 성공 기준을 함께 기록합니다. 실행 시간은 환경 의존적이므로 성능 향상 수치로
+포장하지 않고, 실제로 검증한 동시성 계약과 아직 보장하지 않는 production 경계를 분리했습니다.
+
+---
+
 ## 다음 방향
 
 30일 완주를 위한 남은 단계:
 
 | Day | 방향 |
 |------|------|
-| Day 29 | README / portfolio packaging |
 | Day 30 | final review, remaining work list, one-month close |
