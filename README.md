@@ -8,6 +8,7 @@
 ## 빠른 탐색
 
 - [포트폴리오용 Case Study](PORTFOLIO.md)
+- [30일 최종 리뷰](FINAL_REVIEW.md)
 - [ThreadPool 공용 API](src/ThreadPool.h) / [구현](src/ThreadPool.cpp)
 - [핵심 계약 회귀 테스트](experiments/Day26_RegressionSuite.cpp)
 - [실패와 취소 Trace](experiments/Day27_FailureCancelTrace.cpp)
@@ -174,6 +175,7 @@ Week 2의 핵심은 `Wait()`를 줄이고 작업 그래프를 큐로 흘려보�
 | Day 27 | Failure / Cancel Trace | 실행 실패와 dependency 기반 취소를 서로 다른 trace event로 기록한다. |
 | Day 28 | Architecture Recap | 코어, 정책, 실험 계층과 현재 production 경계를 정리한다. |
 | Day 29 | Portfolio Packaging | 대표 구현, 검증 근거, trade-off를 하나의 case study로 정리한다. |
+| Day 30 | Final Review | 30일 학습의 완성 범위, 검증 기준, 남은 production 과제를 정리한다. |
 
 ### Day 15 — Helping Wait
 
@@ -615,10 +617,20 @@ Day28의 결론은 **queue, wait, dependency, failure, memory, observability를 
 
 ---
 
-## 다음 방향
+### Day 30 — Final Review
 
-30일 완주를 위한 남은 단계:
+30일차는 새 기능을 추가하지 않고, 한 달 동안 만든 구현과 실험의 끝맺음을 문서화했습니다.
+[`FINAL_REVIEW.md`](FINAL_REVIEW.md)에 완료된 범위, 대표 검증 경로, 아직 production 품질이라고
+부르지 않는 경계, 이후 확장 우선순위를 정리했습니다.
 
-| Day | 방향 |
-|------|------|
-| Day 30 | final review, remaining work list, one-month close |
+이 프로젝트의 결과물은 완성된 범용 JobSystem이라기보다, ThreadPool에서 JobSystem으로 확장될 때
+필요한 계약을 직접 분해하고 검증한 학습 기록입니다. 마지막 문서는 이 구분을 명확히 남겨
+나중에 포트폴리오나 다음 구현 단계로 이어갈 때 과장 없이 현재 위치를 설명할 수 있게 합니다.
+
+---
+
+## 마무리
+
+Day01부터 Day30까지의 핵심 흐름은 `ThreadPool` 실행 코어, `JobHandle`, dependency continuation,
+failure propagation, helping wait, local queue / stealing, observability, regression suite로 이어졌습니다.
+최종 상태는 [`PORTFOLIO.md`](PORTFOLIO.md)와 [`FINAL_REVIEW.md`](FINAL_REVIEW.md)에서 빠르게 확인할 수 있습니다.
